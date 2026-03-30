@@ -50,3 +50,11 @@ export type {
   DeploymentWindow,
 } from './deployment.js'
 
+// Outlook
+export type {
+  OutlookEvent,
+  OutlookCapacityBlock,
+  OutlookFilterConfig,
+} from './outlook.js'
+export { DEFAULT_OUTLOOK_FILTER } from './outlook.js'
+

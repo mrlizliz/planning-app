@@ -37,8 +37,8 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 
 ## Stato attuale
 
-- **Release completata:** Release 1 — MVP Planning Core
-- **Prossima release:** Release 2 — Real Capacity & Microsoft Calendar Integration
+- **Release completata:** Release 2 — Real Capacity & Microsoft Calendar Integration
+- **Prossima release:** Release 3 — Milestone, Release & Deployment Calendar
 
 ## Come orientarsi
 

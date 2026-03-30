@@ -32,9 +32,12 @@ export {
 } from './scheduler.js'
 
 export {
+  filterOutlookEvents,
+  mapEventsToCapacityBlocks,
+  aggregateCapacityByDay,
+} from './outlook-mapper.js'
+
+export {
   mapJiraIssueToTicket,
   mapJiraIssuesToTickets,
-  type JiraIssue,
-  type JiraMappingResult,
 } from './jira-mapper.js'
-

@@ -239,12 +239,79 @@ API Client tipizzato (`src/api/client.ts`) — fetch wrapper con Content-Type co
 
 ## Release 2 — Real Capacity & Microsoft Calendar Integration
 
-**Data:** TBD
-**Stato:** 🔜 Prossima
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
 
-### Obiettivo previsto
+### Obiettivo
 
-Capacità reale: meeting, assenze, Outlook calendar, heatmap capacità.
+Rendere la capacità giornaliera realistica, considerando meeting, assenze e impegni da Outlook.
 
-Vedi `jira-planning-roadmap.md` → Release 2 per dettagli completi.
+### Cosa è stato fatto
+
+#### 1. Scheduler con capacità reale giorno per giorno
+
+Lo scheduler ora itera **giorno per giorno**, consumando i minuti di effort dalla capacità netta reale del giorno (non più una stima "piatta"). Considera:
+- Meeting ricorrenti del giorno (daily, weekly, biweekly)
+- Assenze (giornata intera → capacità 0, mezza giornata → capacità dimezzata)
+- Overhead fisso
+- Allocation %
+
+Se un utente è in ferie, quel giorno viene saltato. Se ha 2h di meeting, la capacità si riduce di 2h e il ticket dura proporzionalmente di più.
+
+Funzione chiave: `scheduleDayByDay()` in `scheduler.ts`.
+
+#### 2. Backend — Route capacità
+
+Nuovo endpoint `GET /api/capacity/:userId?from=...&to=...` che restituisce il breakdown giornaliero:
+- `isWorkingDay`, `grossMinutes`, `netMinutes`, `meetingMinutes`, `overheadMinutes`, `absenceMinutes`
+- `assignedMinutes` (carico effettivo)
+- `alert` (true se capacità ≤ 0)
+- `absenceType`, `meetingNames`
+
+#### 3. Frontend — CapacityView riscritta
+
+- **Heatmap capacità**: griglia colorata giorno per giorno (verde >70%, giallo 30-70%, rosso <30%)
+- **Click su utente** → carica heatmap delle prossime 4 settimane
+- **Sezione giorni critici**: lista dei giorni con alert (capacità 0)
+- **Gestione assenze**: CRUD assenze con tipo (vacation, sick, permit, training, other) e half-day
+- **Gestione meeting ricorrenti**: CRUD meeting con tipo, durata, frequenza, giorno, scope (team/persona)
+
+#### 4. Outlook mapper (funzioni pure)
+
+Tipi e funzioni pure per integrare Microsoft Graph Calendar (pronte per quando si collegherà OAuth2):
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `filterOutlookEvents` | `outlook-mapper.ts` | Filtra eventi per showAs, durata, opzionalità |
+| `mapEventsToCapacityBlocks` | `outlook-mapper.ts` | Converte eventi in blocchi di capacità ridotta |
+| `aggregateCapacityByDay` | `outlook-mapper.ts` | Aggrega blocchi per giorno |
+
+Tipi: `OutlookEvent`, `OutlookCapacityBlock`, `OutlookFilterConfig` in `types/outlook.ts`.
+
+Filtri configurabili:
+- Solo eventi `busy`/`oof` (esclusi `tentative`, `free`)
+- Soglia minima durata (default 15min)
+- Esclusione eventi opzionali e cancellati
+
+#### 5. Test automatici
+
+| File | Test IDs | Casi |
+|------|----------|------|
+| `shared/tests/scheduling/capacity-real.test.ts` | T2-U01…U14 | 15 test (capacità reale, meeting, assenze, half-day, Outlook filtri) |
+| `backend/tests/capacity.test.ts` | T2-I01…I04 | 4 test (meeting+scheduling, ferie+scheduling, capacity API, filtri) |
+
+**Totale test: 140** (123 shared + 17 backend)
+
+### Decisioni chiave
+
+1. **Day-by-day scheduling** — Lo scheduler itera giorno per giorno con capacità reale, non usa più una stima piatta
+2. **realStartDate** — Se un utente ha assenza il primo giorno, lo scheduler restituisce come `startDate` il primo giorno di lavoro effettivo
+3. **Outlook mapper come funzioni pure** — Pronte per l'integrazione Microsoft Graph, testabili senza mock di rete
+4. **Heatmap interattiva** — Click su utente → carica da API `/api/capacity` i dati reali
+
+### Non fatto (rimandato)
+
+- ❌ OAuth2 Microsoft Graph (richiede configurazione Azure AD)
+- ❌ Sync automatico Outlook (previsto come pulsante in release futura)
+- ❌ Test E2E Playwright
 

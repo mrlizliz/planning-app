@@ -7,7 +7,7 @@ import type { Assignment } from '../types/assignment.js'
 import type { User } from '../types/user.js'
 import type { Absence } from '../types/calendar.js'
 import type { RecurringMeeting } from '../types/calendar.js'
-import { addWorkingDays, nextWorkingDay, type CalendarConfig } from './calendar.js'
+import { addWorkingDays, nextWorkingDay, isWorkingDay, type CalendarConfig } from './calendar.js'
 import {
   calculateDailyCapacity,
   applyAllocation,
@@ -15,7 +15,7 @@ import {
   getMeetingMinutesForDay,
   isOverallocated,
 } from './capacity.js'
-import { format, parseISO, getDay } from 'date-fns'
+import { format, parseISO, getDay, addDays } from 'date-fns'
 
 // ---- Types ----
 
@@ -188,6 +188,55 @@ function getNextAvailableDate(
   return nextWorkingDay(latestEnd, calendar)
 }
 
+// ---- Day-by-day scheduling ----
+
+/**
+ * Itera giorno per giorno a partire da startDate, consumando i minuti di effort
+ * dalla capacità netta reale del giorno (meeting + assenze + overhead + allocation%).
+ * Restituisce endDate e durationDays reali.
+ *
+ * Max 365 giorni safety limit.
+ */
+function scheduleDayByDay(
+  startDate: Date,
+  estimateMinutes: number,
+  allocationPercent: number,
+  user: User,
+  absences: Absence[],
+  meetings: RecurringMeeting[],
+  calendar: CalendarConfig,
+): { realStartDate: Date; endDate: Date; durationDays: number } | null {
+  let remainingMinutes = estimateMinutes
+  let currentDate = startDate
+  let daysWorked = 0
+  let firstWorkDate: Date | null = null
+  let lastWorkDate = startDate
+  const MAX_DAYS = 365
+
+  for (let i = 0; i < MAX_DAYS && remainingMinutes > 0; i++) {
+    if (!isWorkingDay(currentDate, calendar)) {
+      currentDate = addDays(currentDate, 1)
+      continue
+    }
+
+    const dailyNet = getUserDailyCapacity(user, currentDate, absences, meetings)
+    const effectiveMinutes = applyAllocation(dailyNet, allocationPercent)
+
+    if (effectiveMinutes > 0) {
+      remainingMinutes -= effectiveMinutes
+      daysWorked++
+      if (!firstWorkDate) firstWorkDate = currentDate
+      lastWorkDate = currentDate
+    }
+
+    currentDate = addDays(currentDate, 1)
+  }
+
+  if (remainingMinutes > 0 || daysWorked === 0 || !firstWorkDate) return null
+
+  return { realStartDate: firstWorkDate, endDate: lastWorkDate, durationDays: daysWorked }
+}
+
 // ---- Main scheduler ----
 
 /**
@@ -278,24 +327,9 @@ export function autoSchedule(input: SchedulerInput): SchedulerResult {
       continue
     }
 
-    // Calcola durata
-    const dailyCapacity = user.dailyWorkingMinutes - user.dailyOverheadMinutes
-    if (dailyCapacity <= 0) {
-      errors.push({
-        assignmentId: assignment.id,
-        ticketId: assignment.ticketId,
-        reason: 'zero_capacity',
-      })
-      continue
-    }
-
-    const durationDays = calculateDurationDays(
-      ticket.estimateMinutes,
-      dailyCapacity,
-      assignment.allocationPercent,
-    )
-
-    if (!isFinite(durationDays) || durationDays <= 0) {
+    // Calcola capacità media per validazione (almeno un giorno deve avere capacità)
+    const avgCapacity = user.dailyWorkingMinutes - user.dailyOverheadMinutes
+    if (avgCapacity <= 0) {
       errors.push({
         assignmentId: assignment.id,
         ticketId: assignment.ticketId,
@@ -313,16 +347,33 @@ export function autoSchedule(input: SchedulerInput): SchedulerResult {
       userCalendar,
     )
 
-    // Calcola end date
-    const assignmentEnd = addWorkingDays(assignmentStart, durationDays, userCalendar)
+    // Calcola end date iterando giorno per giorno con capacità reale
+    const scheduling = scheduleDayByDay(
+      assignmentStart,
+      ticket.estimateMinutes,
+      assignment.allocationPercent,
+      user,
+      absences,
+      meetings,
+      userCalendar,
+    )
+
+    if (!scheduling) {
+      errors.push({
+        assignmentId: assignment.id,
+        ticketId: assignment.ticketId,
+        reason: 'zero_capacity',
+      })
+      continue
+    }
 
     const result: ScheduledAssignment = {
       assignmentId: assignment.id,
       ticketId: assignment.ticketId,
       userId: assignment.userId,
-      startDate: format(assignmentStart, 'yyyy-MM-dd'),
-      endDate: format(assignmentEnd, 'yyyy-MM-dd'),
-      durationDays,
+      startDate: format(scheduling.realStartDate, 'yyyy-MM-dd'),
+      endDate: format(scheduling.endDate, 'yyyy-MM-dd'),
+      durationDays: scheduling.durationDays,
     }
 
     scheduled.push(result)
