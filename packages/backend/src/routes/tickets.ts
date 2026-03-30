@@ -127,13 +127,20 @@ export async function ticketRoutes(app: FastifyInstance) {
       }
     } catch (error) {
       if (error instanceof JiraClientError) {
+        app.log.error({ err: error, statusCode: error.statusCode, jiraMessage: error.jiraMessage }, 'Jira sync failed')
         return reply.status(error.statusCode >= 500 ? 502 : error.statusCode).send({
           error: 'Errore Jira',
           statusCode: error.statusCode,
-          message: error.jiraMessage,
+          message: error.jiraMessage ?? error.message,
         })
       }
-      throw error
+      // Errore non-Jira (network, parsing, ecc.)
+      const msg = error instanceof Error ? error.message : String(error)
+      app.log.error({ err: error }, 'Jira sync unexpected error')
+      return reply.status(500).send({
+        error: 'Errore imprevisto durante sync Jira',
+        message: msg,
+      })
     }
   })
 }

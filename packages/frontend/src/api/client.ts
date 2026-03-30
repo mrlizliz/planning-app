@@ -20,7 +20,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
-    throw new Error(body.error ?? `HTTP ${response.status}`)
+    const detail = body.message ? `${body.error ?? 'Errore'}: ${body.message}` : (body.error ?? `HTTP ${response.status}`)
+    throw new Error(detail)
   }
   // Gestisci risposte vuote (204 No Content)
   const text = await response.text()

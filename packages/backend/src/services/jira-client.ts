@@ -101,6 +101,7 @@ export class JiraClient {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        console.log(`🔗 Jira API request [attempt ${attempt + 1}]: ${url.split('?')[0]}...`)
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -112,10 +113,23 @@ export class JiraClient {
 
         if (!response.ok) {
           const body = await response.text().catch(() => '')
+          // Prova a estrarre un messaggio leggibile dal JSON di errore Jira
+          let jiraMessage = body
+          try {
+            const parsed = JSON.parse(body)
+            if (parsed.errorMessages?.length) {
+              jiraMessage = parsed.errorMessages.join('; ')
+            } else if (parsed.message) {
+              jiraMessage = parsed.message
+            }
+          } catch {
+            // body non è JSON, usa il testo raw
+          }
+          console.error(`❌ Jira API ${response.status} ${response.statusText}: ${jiraMessage}`)
           throw new JiraClientError(
             `Jira API error: ${response.status} ${response.statusText}`,
             response.status,
-            body,
+            jiraMessage,
           )
         }
 
