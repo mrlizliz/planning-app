@@ -146,28 +146,36 @@ function handleClose() {
   background: rgba(0,0,0,0.4); display: flex; align-items: center;
   justify-content: center; z-index: 100;
 }
+:root.dark .dialog-overlay { background: rgba(0,0,0,0.7); }
 .dialog {
-  background: white; border-radius: 12px; width: 480px; max-width: 90vw;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  background: var(--bg-card); border-radius: 12px; width: 480px; max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2); color: var(--text-primary);
+  transition: var(--transition-theme);
 }
 .dialog-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 1rem 1.25rem; border-bottom: 1px solid #e9ecef;
+  padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color);
 }
 .dialog-header h3 { font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; }
 .dialog-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
-.dialog-footer { padding: 1rem 1.25rem; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 0.5rem; }
+.dialog-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 0.5rem; }
 .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
-.form-group label { font-size: 0.8rem; font-weight: 600; color: #555; }
-.input { padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; outline: none; }
-.input:focus { border-color: #4361ee; }
+.form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+.input {
+  padding: 0.5rem 0.75rem; border: 1px solid var(--border-color); border-radius: 6px;
+  font-size: 0.85rem; outline: none; background: var(--bg-input); color: var(--text-primary);
+  transition: var(--transition-theme);
+}
+.input:focus { border-color: var(--accent); }
 .token-hint { font-size: 0.78rem; color: #06d6a0; padding: 0.3rem 0; }
 .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: #4361ee; color: white; }
-.btn-secondary { background: #e9ecef; color: #333; }
-.btn-icon { background: none; border: none; cursor: pointer; color: #999; }
+.btn-primary { background: var(--accent); color: white; }
+.btn-secondary { background: var(--badge-bg); color: var(--text-primary); }
+.btn-icon { background: none; border: none; cursor: pointer; color: var(--text-muted); }
 .success-msg { background: #e8f5e9; color: #2e7d32; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
 .error-msg { background: #fde8e8; color: #d00000; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; word-break: break-word; }
+:root.dark .success-msg { background: #1a3a2a; color: #5cb85c; }
+:root.dark .error-msg { background: #3a1a1a; color: #d9534f; }
 </style>
 

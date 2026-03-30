@@ -278,23 +278,33 @@ function formatMinutes(min: number | null): string {
 .estimate-col { text-align: right; font-variant-numeric: tabular-nums; }
 .fix-version-col { white-space: nowrap; }
 .milestone-col, .release-col { white-space: nowrap; }
-.inline-select { padding: 0.2rem 0.3rem; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 0.75rem; background: white; outline: none; max-width: 120px; }
-.inline-select:focus { border-color: #4361ee; }
+.inline-select { padding: 0.2rem 0.3rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; background: var(--bg-input); color: var(--text-primary); outline: none; max-width: 120px; transition: var(--transition-theme); }
+.inline-select:focus { border-color: var(--accent); }
 .fv-badge { background: #ede9fe; color: #6d28d9; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.2rem; }
+:root.dark .fv-badge { background: #2a2044; color: #a78bfa; }
 .badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
 .badge-red { background: #fde8e8; color: #d00000; }
 .badge-orange { background: #fff3e0; color: #e85d04; }
 .badge-blue { background: #e3f2fd; color: #4361ee; }
 .badge-green { background: #e8f5e9; color: #06d6a0; }
 .badge-gray { background: #f5f5f5; color: #888; }
+:root.dark .badge-red { background: #3a1a1a; color: #ef6b6b; }
+:root.dark .badge-orange { background: #3a2a18; color: #f0ad4e; }
+:root.dark .badge-blue { background: #1a2244; color: #7b93ee; }
+:root.dark .badge-green { background: #1a3a2a; color: #5cb85c; }
+:root.dark .badge-gray { background: #2a2a44; color: #8888aa; }
 .status-backlog { background: #f5f5f5; color: #888; }
 .status-planned { background: #e3f2fd; color: #4361ee; }
 .status-progress { background: #fff3e0; color: #e85d04; }
 .status-done { background: #e8f5e9; color: #2e7d32; }
-.phase-badge { background: #e9ecef; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+:root.dark .status-backlog { background: #2a2a44; color: #8888aa; }
+:root.dark .status-planned { background: #1a2244; color: #7b93ee; }
+:root.dark .status-progress { background: #3a2a18; color: #f0ad4e; }
+:root.dark .status-done { background: #1a3a2a; color: #5cb85c; }
+.phase-badge { background: var(--badge-bg); padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; color: var(--badge-text); }
 .warning-badge { cursor: pointer; font-size: 0.85rem; }
-.text-muted { color: #ccc; }
-.empty { padding: 2rem; text-align: center; color: #999; }
+.text-muted { color: var(--text-muted); }
+.empty { padding: 2rem; text-align: center; color: var(--text-muted); }
 </style>
 
 <style>

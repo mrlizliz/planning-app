@@ -49,14 +49,15 @@ function getTypeLabel(type: string): string {
 
 <style scoped>
 .alerts-banner {
-  background: white;
+  background: var(--bg-card);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
+  transition: var(--transition-theme);
 }
 .alerts-header {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light);
 }
 .alerts-header h3 {
   font-size: 0.95rem;
@@ -97,10 +98,14 @@ function getTypeLabel(type: string): string {
 .alert-type {
   font-weight: 600;
   white-space: nowrap;
-  color: #555;
+  color: var(--text-secondary);
 }
 .alert-message {
-  color: #333;
+  color: var(--text-primary);
 }
+
+:root.dark .alert-error { background: #2a1a1a; }
+:root.dark .alert-warning { background: #2a2218; }
+:root.dark .alert-info { background: #1a1e32; }
 </style>
 
