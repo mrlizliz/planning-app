@@ -75,3 +75,31 @@ export {
   type PlanningAlert,
   type AlertsInput,
 } from './alerts.js'
+
+export {
+  createSnapshot,
+  createScenario,
+  modifyScenarioAssignment,
+  promoteScenario,
+  compareScenarios,
+  type ScenarioComparisonItem,
+} from './scenario.js'
+
+export {
+  calculateWeeklyForecast,
+  calculateKPIs,
+  type WeeklyCapacityForecast,
+  type UserWeeklyCapacity,
+  type PlanningKPIs,
+  type ForecastInput,
+  type KPIInput,
+} from './forecast.js'
+
+export {
+  generatePlanningReport,
+  generateReleaseReport,
+  toCSV,
+  type ReportRow,
+  type ReleaseReportRow,
+} from './reporting.js'
+

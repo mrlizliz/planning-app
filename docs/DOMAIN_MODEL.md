@@ -233,6 +233,27 @@ Alert generato dall'engine di scheduling per segnalare anomalie.
 | `ticketIds` | string[] | Ticket coinvolti |
 | `userIds` | string[] | User coinvolti (se rilevante) |
 
+### Scenario (Release 5)
+
+Scenario what-if con snapshot dello stato per confronto e simulazione.
+
+| Campo | Tipo | Note |
+|-------|------|------|
+| `id` | string | |
+| `name` | string | Nome scenario (es. "What-If: cambio assignee") |
+| `description` | string \| null | |
+| `isCurrent` | boolean | true se è lo scenario attivo (uno solo) |
+| `snapshot` | ScenarioSnapshot | Copia degli assignment al momento della creazione |
+| `createdAt` | string | |
+| `updatedAt` | string | |
+
+**ScenarioSnapshot:**
+- `assignments: ScenarioAssignment[]` — Copie leggere degli assignment
+- `ticketIds: string[]` — IDs dei ticket inclusi
+
+**ScenarioAssignment:**
+- `assignmentId, ticketId, userId, role, allocationPercent, startDate, endDate, durationDays, locked`
+
 ### DeploymentDay
 
 Giorno di deploy ricorrente.
@@ -416,6 +437,45 @@ dependency_cycle:   detectCycles(deps).hasCycle == true
 blocking_dependency: dep.type == 'blocking' && fromTicket.status != 'done' && !fromAssignment.endDate
 late_for_release:   max(assignment.endDate) > release.targetDate (per ticket con releaseId)
 overallocation:     sum(assigned_minutes_per_day) > net_capacity_per_day
+```
+
+### Scenario What-If (Release 5)
+
+```
+createScenario(assignments):
+  snapshot = deep copy di tutti gli assignment (solo campi schedulabili)
+  
+modifyScenarioAssignment(scenario, assignmentId, changes):
+  Se cambia userId → resetta startDate/endDate/durationDays (rischedulare)
+  Se cambia solo allocationPercent → mantieni date
+
+promoteScenario(scenario, existingAssignments):
+  Per ogni assignment nello snapshot → sovrascrive il corrispondente nello store
+
+compareScenarios(current, scenario):
+  Per ogni assignment → confronta userId, allocationPercent, startDate, endDate, durationDays
+```
+
+### Capacity Forecast settimanale (Release 5)
+
+```
+Per ogni settimana [weekStart, weekEnd]:
+  availableMinutes = Σ per ogni utente attivo, per ogni giorno lavorativo:
+    calculateDailyCapacity(user, day, absences, meetings).netMinutes
+  
+  plannedMinutes = Σ per ogni ScheduledAssignment che copre il giorno:
+    netCapacity(user, day) × allocationPercent / 100
+  
+  saturation = plannedMinutes / availableMinutes × 100
+  hasShortage = plannedMinutes > availableMinutes
+```
+
+### KPI Planning (Release 5)
+
+```
+overallSaturation = totalPlannedMinutes / totalAvailableMinutes × 100
+plannedTicketRatio = count(planned|in_progress|done) / count(all) × 100
+overallocationRate = count(unique_overalloc_user_days) / count(unique_scheduled_user_days) × 100
 ```
 
 ## Convenzione unità di misura

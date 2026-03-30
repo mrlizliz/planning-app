@@ -21,6 +21,9 @@ import { RouterView } from 'vue-router'
         <router-link to="/releases" class="nav-link">
           <i class="pi pi-flag" /> Release
         </router-link>
+        <router-link to="/reports" class="nav-link">
+          <i class="pi pi-chart-line" /> Report
+        </router-link>
         <router-link to="/settings" class="nav-link">
           <i class="pi pi-cog" /> Impostazioni
         </router-link>

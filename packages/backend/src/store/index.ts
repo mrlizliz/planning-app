@@ -15,6 +15,7 @@ import type {
 import type { Milestone } from '@planning/shared'
 import type { Release } from '@planning/shared'
 import type { Dependency } from '@planning/shared'
+import type { Scenario } from '@planning/shared'
 import type { DeploymentDay, DeploymentWindow } from '@planning/shared'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -35,6 +36,7 @@ export interface Store {
   milestones: Map<string, Milestone>
   releases: Map<string, Release>
   dependencies: Map<string, Dependency>
+  scenarios: Map<string, Scenario>
   deployDays: Map<string, DeploymentDay>
   deployWindows: Map<string, DeploymentWindow>
   calendar: WorkingCalendar
@@ -51,6 +53,7 @@ interface StoreJSON {
   milestones: Record<string, Milestone>
   releases: Record<string, Release>
   dependencies: Record<string, Dependency>
+  scenarios: Record<string, Scenario>
   deployDays: Record<string, DeploymentDay>
   deployWindows: Record<string, DeploymentWindow>
   calendar: WorkingCalendar
@@ -66,6 +69,7 @@ function storeToJSON(store: Store): StoreJSON {
     milestones: Object.fromEntries(store.milestones),
     releases: Object.fromEntries(store.releases),
     dependencies: Object.fromEntries(store.dependencies),
+    scenarios: Object.fromEntries(store.scenarios),
     deployDays: Object.fromEntries(store.deployDays),
     deployWindows: Object.fromEntries(store.deployWindows),
     calendar: store.calendar,
@@ -82,6 +86,7 @@ function jsonToStore(json: StoreJSON): Store {
     milestones: new Map(Object.entries(json.milestones ?? {})),
     releases: new Map(Object.entries(json.releases ?? {})),
     dependencies: new Map(Object.entries(json.dependencies ?? {})),
+    scenarios: new Map(Object.entries(json.scenarios ?? {})),
     deployDays: new Map(Object.entries(json.deployDays ?? {})),
     deployWindows: new Map(Object.entries(json.deployWindows ?? {})),
     calendar: json.calendar ?? {
@@ -141,6 +146,7 @@ export function createStore(): Store {
     milestones: new Map(),
     releases: new Map(),
     dependencies: new Map(),
+    scenarios: new Map(),
     deployDays: new Map(),
     deployWindows: new Map(),
     calendar: {

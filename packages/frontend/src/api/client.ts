@@ -3,8 +3,8 @@
 // ============================================================
 
 import type { Ticket, Assignment, User, Holiday, CalendarException, Absence, RecurringMeeting, WorkingCalendar } from '@planning/shared'
-import type { SchedulerResult, Milestone, Release, Dependency, DeploymentDay, DeploymentWindow } from '@planning/shared'
-import type { PlanningAlert } from '@planning/shared'
+import type { SchedulerResult, Milestone, Release, Dependency, Scenario, DeploymentDay, DeploymentWindow } from '@planning/shared'
+import type { PlanningAlert, WeeklyCapacityForecast, PlanningKPIs, ReportRow, ReleaseReportRow } from '@planning/shared'
 
 const BASE = '/api'
 
@@ -193,4 +193,52 @@ export const dependenciesApi = {
     request<{ impactedTicketIds: string[]; impactedTickets: Ticket[]; chains: Array<{ ticketId: string; path: string[] }> }>(
       `/dependencies/impact/${ticketId}`,
     ),
+}
+
+// ---- Scenarios ----
+
+export const scenariosApi = {
+  list: () => request<Scenario[]>('/scenarios'),
+  create: (name: string, description?: string | null) =>
+    request<Scenario>('/scenarios', { method: 'POST', body: JSON.stringify({ name, description }) }),
+  modifyAssignment: (scenarioId: string, assignmentId: string, changes: Record<string, unknown>) =>
+    request<Scenario>(`/scenarios/${scenarioId}/assignment/${assignmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(changes),
+    }),
+  promote: (id: string) =>
+    request<{ ok: boolean; updatedAssignments: number }>(`/scenarios/${id}/promote`, { method: 'POST' }),
+  compare: (id: string) =>
+    request<{ totalFields: number; changedFields: number; diffs: Array<{ ticketId: string; assignmentId: string; field: string; currentValue: unknown; scenarioValue: unknown; changed: boolean }> }>(
+      `/scenarios/${id}/compare`,
+    ),
+  delete: (id: string) =>
+    request<{ ok: boolean }>(`/scenarios/${id}`, { method: 'DELETE' }),
+}
+
+// ---- Forecast ----
+
+export const forecastApi = {
+  weekly: (from?: string, to?: string) => {
+    const params = new URLSearchParams()
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    const qs = params.toString()
+    return request<WeeklyCapacityForecast[]>(`/forecast/weekly${qs ? `?${qs}` : ''}`)
+  },
+}
+
+// ---- KPIs ----
+
+export const kpisApi = {
+  get: () => request<PlanningKPIs>('/kpis'),
+}
+
+// ---- Reports ----
+
+export const reportsApi = {
+  planning: (format: 'json' | 'csv' = 'json') =>
+    request<ReportRow[] | string>(`/reports/planning?format=${format}`),
+  releases: (format: 'json' | 'csv' = 'json') =>
+    request<ReleaseReportRow[] | string>(`/reports/releases?format=${format}`),
 }

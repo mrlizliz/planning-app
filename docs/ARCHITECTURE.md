@@ -48,7 +48,10 @@ packages/shared/
 │   │   ├── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
 │   │   ├── release-planning.ts ← calculateMilestoneStatus, calculateReleaseForecast, deploy/gate logic
 │   │   ├── dependency-graph.ts ← detectCycles, topologicalSort, getImpactedTickets, getPredecessors, getSuccessors
-│   │   └── alerts.ts           ← generateAlerts (missing_estimate, dependency_cycle, blocking, late_for_release, overallocation)
+│   │   ├── alerts.ts           ← generateAlerts (missing_estimate, dependency_cycle, blocking, late_for_release, overallocation)
+│   │   ├── scenario.ts         ← createScenario, modifyScenarioAssignment, promoteScenario, compareScenarios
+│   │   ├── forecast.ts         ← calculateWeeklyForecast, calculateKPIs
+│   │   └── reporting.ts        ← generatePlanningReport, generateReleaseReport, toCSV
 │   └── validators/             ← Zod schemas per ogni entità
 │       └── index.ts            ← Tutti i validatori (userSchema, ticketSchema, ecc.)
 ├── tests/
@@ -62,6 +65,9 @@ packages/shared/
 │       └── release-planning.test.ts ← Test T3-U01…U10 (milestone, release, deploy, gate)
 │       ├── dependency-graph.test.ts ← Test T4-U01…U10 (cicli, topo sort, impact, deps nello scheduler)
 │       └── alerts.test.ts      ← Test T4-U11…U13 (missing_estimate, cycle, blocking, late, overallocation)
+│       ├── scenario.test.ts    ← Test T5-U01…U03 (crea, modifica, promuovi scenario)
+│       ├── forecast.test.ts    ← Test T5-U04…U07 (forecast, KPI, saturazione)
+│       └── reporting.test.ts   ← Test T5-U08 (report, CSV export)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -109,6 +115,20 @@ packages/shared/
 | `generateAlerts(input)` | `alerts.ts` | Genera alert intelligenti per lo stato della pianificazione |
 | `mapJiraLinksToDependencies(issues, map)` | `jira-mapper.ts` | Mappa issuelinks Jira a Dependency interne |
 
+### Funzioni scheduling aggiunte in Release 5
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `createScenario(name, desc, assignments)` | `scenario.ts` | Crea scenario what-if come copia dello stato corrente |
+| `modifyScenarioAssignment(scenario, id, changes)` | `scenario.ts` | Modifica assignment nello scenario (senza impattare lo stato corrente) |
+| `promoteScenario(scenario, assignments)` | `scenario.ts` | Promuove scenario → genera assignment da applicare |
+| `compareScenarios(current, scenario)` | `scenario.ts` | Confronto side-by-side: differenze campo per campo |
+| `calculateWeeklyForecast(input)` | `forecast.ts` | Capacity forecast settimanale (disponibili vs pianificati) |
+| `calculateKPIs(input)` | `forecast.ts` | KPI planning (saturazione, sovrallocazione, ratio ticket) |
+| `generatePlanningReport(...)` | `reporting.ts` | Genera righe report planning con tutti i dettagli |
+| `generateReleaseReport(...)` | `reporting.ts` | Genera report per release (status, forecast, ticket) |
+| `toCSV(rows, columns?)` | `reporting.ts` | Converte array di oggetti in CSV con escape |
+
 ## Pacchetto: @planning/backend
 
 ```
@@ -127,14 +147,16 @@ packages/backend/
 │       ├── scheduler.ts      ← Trigger auto-scheduling
 │       ├── capacity.ts       ← GET breakdown giornaliero per utente
 │       ├── releases.ts       ← CRUD milestone, release, deploy days/windows
-│       └── dependencies.ts   ← CRUD dipendenze + impact analysis
+│       ├── dependencies.ts   ← CRUD dipendenze + impact analysis
+│       └── scenarios.ts      ← CRUD scenari, forecast, KPI, report + CSV export
 ├── data/
 │   └── store.json            ← 💾 Dati persistenti (in .gitignore)
 ├── tests/
 │   ├── api.test.ts           ← Integration test API (T1-I01…I04)
 │   ├── capacity.test.ts      ← Integration test capacità (T2-I01…I04)
 │   ├── releases.test.ts      ← Integration test release (T3-I01…I04)
-│   └── dependencies.test.ts  ← Integration test dipendenze (T4-I01…I04)
+│   ├── dependencies.test.ts  ← Integration test dipendenze (T4-I01…I04)
+│   └── scenarios.test.ts     ← Integration test scenari/forecast/report (T5-I01…I03)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -153,7 +175,7 @@ packages/frontend/
 │   ├── main.ts                ← Bootstrap Vue 3 + Pinia + PrimeVue + Router
 │   ├── App.vue                ← Layout principale con header + nav
 │   ├── router/
-│   │   └── index.ts           ← 5 route: /, /tickets, /capacity, /releases, /settings
+│   │   └── index.ts           ← 6 route: /, /tickets, /capacity, /releases, /reports, /settings
 │   ├── stores/
 │   │   ├── tickets.ts         ← Pinia store ticket + sync Jira
 │   │   ├── planning.ts        ← Pinia store assignment + scheduler

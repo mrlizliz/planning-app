@@ -490,3 +490,123 @@ Lo scheduler route ora passa le dipendenze all'auto-scheduler e restituisce `ale
 - ❌ Impact analysis popup pre-conferma (UI complessa — Release futura)
 - ❌ Ordinamento per release target / milestone / data target (già supportato come feature, UI da evolvere)
 - ❌ Test E2E Playwright
+
+---
+
+## Release 5 — Scenario Planning, Forecast & Reporting
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
+
+### Obiettivo
+
+Dare al PM strumenti previsionali e decisionali per ottimizzare il planning: scenari what-if, capacity forecast settimanale, KPI di planning e report esportabili.
+
+### Cosa è stato fatto
+
+#### 1. Scenario Engine (`@planning/shared/src/scheduling/scenario.ts`)
+
+Funzioni pure per gestione scenari what-if:
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `createSnapshot(assignments)` | Crea snapshot dello stato corrente |
+| `createScenario(name, desc, assignments)` | Crea scenario come copia dello stato corrente |
+| `modifyScenarioAssignment(scenario, id, changes)` | Modifica assignment nello scenario (non impatta stato corrente) |
+| `promoteScenario(scenario, assignments)` | Promuove scenario → genera assignment da applicare |
+| `compareScenarios(current, scenario)` | Confronto side-by-side: differenze campo per campo |
+
+Logica:
+- Lo scenario contiene uno snapshot immutabile degli assignment
+- Le modifiche creano un nuovo scenario (immutabilità)
+- Il cambio userId resetta automaticamente le date calcolate
+- Il promote sovrascrive gli assignment nello store principale
+
+#### 2. Forecast Engine (`@planning/shared/src/scheduling/forecast.ts`)
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `calculateWeeklyForecast(input)` | Capacità disponibile vs pianificata per settimana, con rilevamento shortage |
+| `calculateKPIs(input)` | KPI: saturazione, ratio ticket, sovrallocazione, stime mancanti |
+
+KPI calcolati:
+
+| KPI | Formula |
+|-----|---------|
+| `overallSaturation` | effort_pianificato / capacità_disponibile × 100 |
+| `plannedTicketRatio` | ticket_pianificati / ticket_totali × 100 |
+| `overallocationRate` | giorni_sovrallocati / giorni_schedulati × 100 |
+| `ticketsWithoutEstimate` | count(ticket senza stima) |
+
+#### 3. Reporting Engine (`@planning/shared/src/scheduling/reporting.ts`)
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `generatePlanningReport(...)` | Report planning: jiraKey, summary, assignee, date, effort, release, milestone |
+| `generateReleaseReport(...)` | Report release: nome, targetDate, forecast, ticket, status |
+| `toCSV(rows, columns?)` | Export generico in CSV con escape virgole e virgolette |
+
+#### 4. Scenario type (`@planning/shared/src/types/scenario.ts`)
+
+Nuove interfacce:
+- `Scenario` — Scenario con snapshot, nome, descrizione
+- `ScenarioSnapshot` — Snapshot degli assignment e ticket IDs
+- `ScenarioAssignment` — Copia leggera di un assignment nello scenario
+
+Validatore Zod: `scenarioSchema` con snapshot e assignment nested.
+
+#### 5. Backend — Route Scenari, Forecast, KPI, Report
+
+Nuovi endpoint REST:
+
+| Route | Metodo | Descrizione |
+|-------|--------|-------------|
+| `/api/scenarios` | GET, POST, DELETE | CRUD scenari what-if |
+| `/api/scenarios/:id/assignment/:assignmentId` | PUT | Modifica assignment nello scenario |
+| `/api/scenarios/:id/promote` | POST | Promuove scenario a stato corrente |
+| `/api/scenarios/:id/compare` | GET | Confronto con stato corrente |
+| `/api/forecast/weekly` | GET | Capacity forecast settimanale (query: from, to) |
+| `/api/kpis` | GET | KPI di planning |
+| `/api/reports/planning` | GET | Report planning (JSON o CSV con `?format=csv`) |
+| `/api/reports/releases` | GET | Report release (JSON o CSV) |
+
+Store aggiornato con `scenarios: Map<string, Scenario>`.
+
+#### 6. Frontend — ReportsView + Nav link
+
+- **ReportsView** (`/reports`) con 4 sezioni:
+  - 📈 **KPI Dashboard**: 6 card con saturazione, ticket pianificati, sovrallocazione, senza stima, completati, effort
+  - 📅 **Capacity Forecast**: tabella settimanale con disponibili/pianificate/delta/saturazione, evidenza shortage
+  - 🔮 **Scenari What-If**: creazione, lista, promozione, eliminazione
+  - 📥 **Export**: download CSV planning report e release report
+- **Nav link** "Report" aggiunto nella barra di navigazione
+- **API client**: endpoint per scenarios, forecast, kpis, reports
+
+#### 7. Test automatici
+
+| File | Test IDs | Casi |
+|------|----------|------|
+| `shared/tests/scheduling/scenario.test.ts` | T5-U01…U03 | 6 test (crea, modifica, promuovi, confronta scenario) |
+| `shared/tests/scheduling/forecast.test.ts` | T5-U04…U07 | 6 test (forecast shortage, KPI saturazione, sovrallocazione, ratio) |
+| `shared/tests/scheduling/reporting.test.ts` | T5-U08 | 8 test (report planning, release report, CSV export, escape) |
+| `backend/tests/scenarios.test.ts` | T5-I01…I03 | 7 test (what-if completo, CRUD, report JSON/CSV, KPI, forecast) |
+
+**Totale test: 232** (196 shared + 36 backend)
+
+### Decisioni chiave
+
+1. **Scenari come snapshot immutabili** — Ogni modifica crea un nuovo oggetto scenario, lo stato corrente non viene mai toccato
+2. **KPI calcolati on-demand** — Non persistiti, ricalcolati ad ogni GET per riflettere lo stato aggiornato
+3. **CSV export come funzione pura** — `toCSV` è generica e riutilizzabile per qualsiasi array di oggetti
+4. **Forecast basato su scheduling reale** — Il forecast settimanale esegue l'auto-scheduler per avere date aggiornate
+5. **Promote come sovrascrittura** — Il promote di uno scenario sostituisce gli assignment nello store principale
+
+### Non fatto (rimandato / evoluzioni future)
+
+- ❌ Confronto side-by-side visuale nel frontend (UI avanzata)
+- ❌ Scheduling dello scenario (eseguire auto-schedule dentro lo scenario)
+- ❌ Storico modifiche / audit trail
+- ❌ Export PDF
+- ❌ Drag & drop su timeline
+- ❌ Test E2E Playwright
+

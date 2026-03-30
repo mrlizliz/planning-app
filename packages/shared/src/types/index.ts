@@ -58,3 +58,10 @@ export type {
 } from './outlook.js'
 export { DEFAULT_OUTLOOK_FILTER } from './outlook.js'
 
+// Scenario
+export type {
+  Scenario,
+  ScenarioSnapshot,
+  ScenarioAssignment,
+} from './scenario.js'
+

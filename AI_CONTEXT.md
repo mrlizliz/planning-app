@@ -37,8 +37,8 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 
 ## Stato attuale
 
-- **Release completata:** Release 4 — Dependencies, Priorities & Advanced Scheduling
-- **Prossima release:** Release 5 — Scenario Planning, Forecast & Reporting
+- **Release completata:** Release 5 — Scenario Planning, Forecast & Reporting
+- **Prossima release:** Backlog post-release / Evoluzioni future
 
 ## Come orientarsi
 

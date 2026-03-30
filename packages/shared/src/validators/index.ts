@@ -171,3 +171,32 @@ export const deploymentWindowSchema = z.object({
   notes: z.string().nullable(),
 })
 
+// ---- Scenario ----
+
+export const scenarioAssignmentSchema = z.object({
+  assignmentId: z.string().min(1),
+  ticketId: z.string().min(1),
+  userId: z.string().min(1),
+  role: planningRoleSchema,
+  allocationPercent: z.number().int().min(1).max(100),
+  startDate: isoDateString.nullable(),
+  endDate: isoDateString.nullable(),
+  durationDays: z.number().int().min(0).nullable(),
+  locked: z.boolean(),
+})
+
+export const scenarioSnapshotSchema = z.object({
+  assignments: z.array(scenarioAssignmentSchema),
+  ticketIds: z.array(z.string().min(1)),
+})
+
+export const scenarioSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string().nullable(),
+  isCurrent: z.boolean(),
+  snapshot: scenarioSnapshotSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
