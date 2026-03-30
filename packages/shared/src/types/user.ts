@@ -8,6 +8,9 @@ export type AppRole = 'pm' | 'dev' | 'qa'
 /** Ruoli pianificabili — usati per assignment e scheduling */
 export type PlanningRole = 'dev' | 'qa'
 
+/** Sede di riferimento — determina i festivi patronali applicabili */
+export type Office = 'milano' | 'venezia' | 'roma'
+
 export interface User {
   id: string
   displayName: string
@@ -15,6 +18,8 @@ export interface User {
   appRole: AppRole
   /** Ruoli pianificabili assegnati (una persona può essere sia DEV che QA) */
   planningRoles: PlanningRole[]
+  /** Sede di riferimento (determina i patroni applicabili) */
+  office: Office | null
   /** Ore lavorative teoriche giornaliere (default: 480 minuti = 8h) */
   dailyWorkingMinutes: number
   /** Overhead fisso giornaliero in minuti (email, admin, ecc.) */

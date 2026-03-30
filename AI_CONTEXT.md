@@ -30,15 +30,15 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 ## Stack
 
 - **Frontend:** Vue 3 + TypeScript + Vite + PrimeVue + Pinia
-- **Backend:** Fastify + TypeScript + Prisma + PostgreSQL
+- **Backend:** Fastify + TypeScript (persistenza su file JSON, Prisma + PostgreSQL previsti)
 - **Shared:** Monorepo pnpm con pacchetto `@planning/shared` (tipi, scheduling, validatori)
-- **Test:** Vitest + Supertest + Playwright + MSW
-- **Infra:** Docker Compose (dev), GitHub Actions (CI/CD)
+- **Test:** Vitest (unit + integration)
+- **Infra:** pnpm workspaces + Turborepo
 
 ## Stato attuale
 
-- **Release completata:** Release 0 — Discovery & Foundation
-- **Prossima release:** Release 1 — MVP Planning Core
+- **Release completata:** Release 1 — MVP Planning Core
+- **Prossima release:** Release 2 — Real Capacity & Microsoft Calendar Integration
 
 ## Come orientarsi
 

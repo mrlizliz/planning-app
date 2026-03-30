@@ -51,9 +51,10 @@ Utente del sistema. Può avere ruolo applicativo (PM, DEV, QA) e ruoli pianifica
 |-------|------|------|
 | `id` | string | Identificatore univoco |
 | `displayName` | string | Nome visualizzato |
-| `email` | string | Email (usata per match con Jira/Outlook) |
+| `email` | string | Email (usata per match con Jira/Outlook). Default: `nome.cognome@arsenalia.com` |
 | `appRole` | `'pm' \| 'dev' \| 'qa'` | Ruolo applicativo (permessi) |
-| `planningRoles` | `PlanningRole[]` | Ruoli pianificabili (`'dev'`, `'qa'`) |
+| `planningRoles` | `PlanningRole[]` | Ruoli pianificabili (`'dev'`, `'qa'`). PM ha `[]` |
+| `office` | `Office \| null` | Sede di riferimento (`'milano' \| 'venezia' \| 'roma'`). Determina i festivi patronali applicabili |
 | `dailyWorkingMinutes` | number | Ore teoriche giornaliere in minuti (default: 480 = 8h) |
 | `dailyOverheadMinutes` | number | Overhead fisso giornaliero in minuti |
 | `active` | boolean | Attivo nel team |
@@ -107,6 +108,17 @@ Giorno festivo del team.
 | `date` | string | ISO YYYY-MM-DD |
 | `name` | string | Es. "Festa della Liberazione" |
 | `recurring` | boolean | Se true, ricorre ogni anno |
+| `office` | string \| null | `null` = festivo nazionale (tutte le sedi). Se valorizzato (es. `'milano'`), vale solo per utenti di quella sede |
+
+**Festivi patronali per sede:**
+
+| Sede | Patrono | Data |
+|------|---------|------|
+| Milano | Sant'Ambrogio | 7 dicembre |
+| Venezia | San Marco | 25 aprile |
+| Roma | Santi Pietro e Paolo | 29 giugno |
+
+> Nota: San Marco (25 aprile) coincide con la Festa della Liberazione (festivo nazionale). Per gli utenti di Venezia non cambia nulla, ma il patrono è comunque registrato per completezza.
 
 ### CalendarException
 

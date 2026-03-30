@@ -1,17 +1,28 @@
 {
   "name": "@planning/frontend",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "echo 'Frontend non ancora configurato — Release 1'",
-    "build": "echo 'Frontend non ancora configurato — Release 1'"
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@planning/shared": "workspace:*"
+    "@planning/shared": "workspace:*",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0",
+    "pinia": "^2.3.0",
+    "primevue": "^4.3.0",
+    "@primevue/themes": "^4.3.0",
+    "primeicons": "^7.0.0",
+    "date-fns": "^4.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "@vitejs/plugin-vue": "^5.2.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.1.0",
+    "vue-tsc": "^2.2.0"
   }
 }
 

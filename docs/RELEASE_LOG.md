@@ -101,12 +101,150 @@ Uno schema Zod per ogni entità del domain model, con validazione di:
 
 ## Release 1 — MVP Planning Core
 
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
+
+### Obiettivo
+
+Prima versione usabile: import Jira, assegnamento ticket, scheduling con date realistiche.
+
+### Cosa è stato fatto
+
+#### 1. Scheduler Engine (`@planning/shared/src/scheduling/scheduler.ts`)
+
+Motore di auto-scheduling come funzione pura:
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `autoSchedule(input)` | Schedula tutti gli assignment non-locked in base a priorità e disponibilità |
+
+Logica:
+- Separa assignment `locked` (non toccati) da quelli da schedulare
+- Ordina per priorità (jiraPriority + priorityOverride)
+- Per ogni assignment: trova prossima data disponibile per l'utente, calcola durata, assegna date
+- Rileva sovrallocazioni
+
+#### 2. Jira Mapper (`@planning/shared/src/scheduling/jira-mapper.ts`)
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `mapJiraIssueToTicket(issue)` | Converte un issue Jira in un Ticket interno |
+| `mapJiraIssuesToTickets(issues, existing)` | Mapping batch con preservazione override manuali |
+
+Funzionalità:
+- Converte `originalEstimateSeconds` → minuti
+- Mappa priorità Jira con alias (Blocker → highest, Major → high, ecc.)
+- Genera warning: `missing_estimate`, `missing_assignee`, `estimate_zero`
+- Re-import preserva override PM (priorityOverride, locked, milestoneId, releaseId)
+
+#### 3. Backend Fastify (`@planning/backend`)
+
+Server Fastify con API REST complete:
+
+| Route | Metodo | Descrizione |
+|-------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/tickets` | GET, PUT, DELETE | CRUD ticket |
+| `/api/tickets/sync-jira` | POST | Import da Jira (JQL) |
+| `/api/users` | GET, POST, PUT, DELETE | CRUD utenti |
+| `/api/assignments` | GET, POST, PUT, DELETE | CRUD assignment |
+| `/api/calendar` | GET | Calendario lavorativo |
+| `/api/calendar/holidays` | GET, POST, DELETE | Gestione festivi |
+| `/api/calendar/exceptions` | GET, POST, DELETE | Gestione eccezioni |
+| `/api/absences` | GET, POST, DELETE | Gestione assenze |
+| `/api/meetings` | GET, POST, DELETE | Gestione meeting |
+| `/api/scheduler/run` | POST | Esegue auto-scheduling |
+| `/api/scheduler/status` | GET | Stato pianificazione |
+
+Architettura:
+- In-memory store (pre-database — verrà sostituito con Prisma + PostgreSQL)
+- JiraClient con Basic Auth, retry automatico, gestione errori HTTP
+- Validazione input con Zod schemas condivisi da `@planning/shared`
+
+#### 4. Frontend Vue 3 (`@planning/frontend`)
+
+Setup completo Vue 3 + Vite + PrimeVue + Pinia + Vue Router:
+
+| Vista | Descrizione |
+|-------|-------------|
+| `PlanningView` | Timeline Gantt con auto-schedule e banner sovrallocazione |
+| `TicketsView` | Lista ticket con tabella, stats, dialogo import Jira |
+| `CapacityView` | Card per utente con carico e barra capacità |
+| `SettingsView` | Gestione team (CRUD + edit inline utenti) e festivi con office |
+
+Componenti:
+- `GanttTimeline` — Timeline settimanale con barre colorate per priorità
+- `TicketTable` — Tabella ticket ordinabile con badge priorità/stato
+- `JiraSyncDialog` — Dialog per configurare e lanciare import Jira
+- `OverallocationBanner` — Alert visivo sovrallocazioni
+
+Stores Pinia:
+- `useTicketsStore` — CRUD ticket + sync Jira
+- `usePlanningStore` — Assignment + scheduler
+- `useUsersStore` — CRUD + update utenti
+
+API Client tipizzato (`src/api/client.ts`) — fetch wrapper con Content-Type condizionale (solo se body presente).
+
+#### 5. Persistenza su file JSON (`@planning/backend`)
+
+- Lo store in memoria viene serializzato su `packages/backend/data/store.json`
+- Salvataggio automatico (debounce 200ms) dopo ogni POST/PUT/DELETE riuscita
+- Al riavvio del backend i dati vengono ricaricati da disco
+- `data/` è in `.gitignore` (dati locali, non committati)
+
+#### 6. Office e festivi patronali
+
+- Ogni utente ha un campo `office`: `'milano' | 'venezia' | 'roma' | null`
+- Ogni festivo ha un campo `office`: `null` = nazionale, altrimenti vale solo per quella sede
+- Lo scheduler filtra automaticamente i festivi in base all'office dell'utente
+- Patroni configurati: Sant'Ambrogio (MI, 7/12), San Marco (VE, 25/4), Santi Pietro e Paolo (RM, 29/6)
+- 12 festivi nazionali italiani pre-configurati (seed script)
+
+#### 7. UX miglioramenti
+
+- **Email autofill**: campo email precompilato come `nome.cognome@arsenalia.com` dal displayName
+- **Edit inline utenti**: pulsante ✏️ per modificare nome, email, ruolo e office senza uscire dalla pagina
+- **Submit con Invio**: form utenti e festivi submitabili premendo Enter
+- **Date in italiano**: festivi visualizzati come `07/12/2026` invece di `2026-12-07`
+
+#### 8. Test automatici
+
+| File | Test IDs | Casi |
+|------|----------|------|
+| `shared/tests/scheduling/scheduler.test.ts` | T1-U11…U15 | 10 test (auto-schedule, locked, sovrallocazione, priorità) |
+| `shared/tests/scheduling/jira-mapper.test.ts` | T1-U01…U03 | 10 test (mapping, warning, batch, override preservati) |
+| `backend/tests/api.test.ts` | T1-I01…I04 | 13 test (CRUD, scheduling integrato, festivo + ricalcolo) |
+
+**Totale test: 121** (108 shared + 13 backend)
+
+### Decisioni chiave prese
+
+1. **Persistenza JSON su disco** — sostituto leggero del DB per l'MVP, senza dipendenze extra
+2. **Jira mapper nel pacchetto shared** — riutilizzabile sia dal backend (sync) sia dal frontend (preview)
+3. **Scheduling sequenziale per utente** — nella v1, i ticket per lo stesso utente vengono schedulati uno dopo l'altro (no parallelismo)
+4. **Vite proxy** per dev — il frontend su porta 5173 fa proxy delle API a backend su porta 3001
+5. **Niente libreria Gantt esterna** — componente custom leggero, verrà evoluto in Release 4
+6. **`office` (non `sede`)** — naming in inglese nel codice, anche se la UI è in italiano
+7. **Content-Type condizionale** — il client API non manda Content-Type su DELETE/GET senza body
+
+### Non fatto (rimandato)
+
+- ❌ Prisma + PostgreSQL (verrà aggiunto quando necessario)
+- ❌ Auth e ruoli (Release futura)
+- ❌ Drag & drop su Gantt (Release 4)
+- ❌ Dipendenze tra ticket (Release 4)
+- ❌ Test E2E Playwright (verranno aggiunti con il frontend maturo)
+
+---
+
+## Release 2 — Real Capacity & Microsoft Calendar Integration
+
 **Data:** TBD
 **Stato:** 🔜 Prossima
 
 ### Obiettivo previsto
 
-Prima versione usabile: import Jira, assegnamento ticket, scheduling con date realistiche.
+Capacità reale: meeting, assenze, Outlook calendar, heatmap capacità.
 
-Vedi `jira-planning-roadmap.md` → Release 1 per dettagli completi.
+Vedi `jira-planning-roadmap.md` → Release 2 per dettagli completi.
 

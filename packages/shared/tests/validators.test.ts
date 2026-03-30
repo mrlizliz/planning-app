@@ -27,6 +27,7 @@ const validUser = {
   email: 'marco@example.com',
   appRole: 'pm',
   planningRoles: ['dev'],
+  office: 'milano',
   dailyWorkingMinutes: 480,
   dailyOverheadMinutes: 30,
   active: true,
@@ -72,6 +73,7 @@ const validHoliday = {
   date: '2026-04-25',
   name: 'Festa della Liberazione',
   recurring: true,
+  office: null,
 }
 
 const validCalendarException = {

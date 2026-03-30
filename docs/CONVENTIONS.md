@@ -40,6 +40,22 @@
 | Zod schemas | camelCase + `Schema` suffix | `ticketSchema` |
 | Cartelle | kebab-case | `scheduling/`, `types/` |
 
+## Convenzioni di dominio
+
+### Email utenti
+
+- Default: `nome.cognome@arsenalia.com` (precompilata nel frontend dal campo Nome)
+- Il campo resta editabile (l'utente può modificarla)
+- Accenti e caratteri speciali vengono rimossi: `José García` → `jose.garcia@arsenalia.com`
+
+### Sedi e festivi patronali
+
+- Ogni utente ha un campo `office` opzionale: `'milano'`, `'venezia'`, `'roma'` (o `null`)
+- I festivi hanno un campo `office`: se `null` = festivo nazionale; se valorizzato = vale solo per gli utenti di quella sede
+- Lo scheduler filtra automaticamente i festivi in base all'`office` dell'utente
+- I patroni (Sant'Ambrogio, San Marco, Santi Pietro e Paolo) sono festivi con `office` specifica
+- Nel codice il campo si chiama sempre `office` (non `sede`)
+
 ## Struttura dei pacchetti
 
 ### @planning/shared

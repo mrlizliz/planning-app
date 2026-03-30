@@ -10,6 +10,8 @@ export interface Holiday {
   name: string
   /** Se true, è una festività ricorrente ogni anno */
   recurring: boolean
+  /** Sede a cui si applica il festivo. null = tutte le sedi (festivo nazionale) */
+  office: string | null
 }
 
 /** Eccezione al calendario: un giorno normalmente non lavorativo diventa lavorativo */

@@ -29,4 +29,7 @@ Thumbs.db
 *.log
 setup-log.txt
 
+# Store locale (persistenza backend)
+packages/backend/data/
+
 

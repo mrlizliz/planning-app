@@ -8,6 +8,7 @@ import { z } from 'zod'
 
 export const appRoleSchema = z.enum(['pm', 'dev', 'qa'])
 export const planningRoleSchema = z.enum(['dev', 'qa'])
+export const officeSchema = z.enum(['milano', 'venezia', 'roma'])
 export const jiraPrioritySchema = z.enum(['highest', 'high', 'medium', 'low', 'lowest'])
 export const ticketStatusSchema = z.enum(['backlog', 'planned', 'in_progress', 'done'])
 export const ticketPhaseSchema = z.enum(['dev', 'qa'])
@@ -31,6 +32,7 @@ export const userSchema = z.object({
   email: z.string().email(),
   appRole: appRoleSchema,
   planningRoles: z.array(planningRoleSchema).min(0),
+  office: officeSchema.nullable(),
   dailyWorkingMinutes: z.number().int().min(0).max(1440),
   dailyOverheadMinutes: z.number().int().min(0).max(1440),
   active: z.boolean(),
@@ -82,6 +84,7 @@ export const holidaySchema = z.object({
   date: isoDateString,
   name: z.string().min(1),
   recurring: z.boolean(),
+  office: z.string().nullable(),
 })
 
 export const calendarExceptionSchema = z.object({

@@ -54,38 +54,74 @@ packages/shared/
 └── vitest.config.ts
 ```
 
-## Pacchetto: @planning/backend (skeleton — Release 1)
+### Funzioni scheduling aggiunte in Release 1
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `autoSchedule(input)` | `scheduler.ts` | Auto-scheduling completo: priorità, locked, sovrallocazione |
+| `mapJiraIssueToTicket(issue)` | `jira-mapper.ts` | Converte issue Jira → Ticket interno |
+| `mapJiraIssuesToTickets(issues, existing)` | `jira-mapper.ts` | Mapping batch con preservazione override |
+
+## Pacchetto: @planning/backend
 
 ```
 packages/backend/
 ├── src/
-│   └── index.ts          ← Placeholder
+│   ├── index.ts              ← Server Fastify + buildApp() + hook auto-save
+│   ├── store/
+│   │   └── index.ts          ← In-memory store + persistenza JSON su disco
+│   ├── services/
+│   │   └── jira-client.ts    ← HTTP client per Jira REST API
+│   └── routes/
+│       ├── tickets.ts        ← CRUD ticket + sync Jira
+│       ├── users.ts          ← CRUD utenti
+│       ├── assignments.ts    ← CRUD assignment
+│       ├── calendar.ts       ← Holidays, exceptions, absences, meetings
+│       └── scheduler.ts      ← Trigger auto-scheduling
+├── data/
+│   └── store.json            ← 💾 Dati persistenti (in .gitignore)
+├── tests/
+│   └── api.test.ts           ← Integration test API (T1-I01…I04)
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── vitest.config.ts
 ```
 
-Sarà sviluppato nella Release 1 con:
-- Fastify come framework HTTP
-- Prisma come ORM (PostgreSQL)
-- Route REST per ticket, calendar, capacity
-- Job queue BullMQ per sync Jira e Outlook
+**Persistenza:** I dati vengono salvati su `data/store.json` (debounce 200ms) dopo ogni scrittura riuscita. Al riavvio, il file viene ricaricato. In futuro verrà sostituito con Prisma + PostgreSQL.
 
-## Pacchetto: @planning/frontend (skeleton — Release 1)
+**JiraClient:** HTTP client con Basic Auth, retry automatico (1 tentativo), gestione errori (401/403 non retryabili).
+
+## Pacchetto: @planning/frontend
 
 ```
 packages/frontend/
+├── index.html                  ← Entry point HTML
 ├── src/
-│   └── main.ts           ← Placeholder
+│   ├── main.ts                ← Bootstrap Vue 3 + Pinia + PrimeVue + Router
+│   ├── App.vue                ← Layout principale con header + nav
+│   ├── router/
+│   │   └── index.ts           ← 4 route: /, /tickets, /capacity, /settings
+│   ├── stores/
+│   │   ├── tickets.ts         ← Pinia store ticket + sync Jira
+│   │   ├── planning.ts        ← Pinia store assignment + scheduler
+│   │   └── users.ts           ← Pinia store utenti
+│   ├── api/
+│   │   └── client.ts          ← HTTP client tipizzato (fetch wrapper)
+│   ├── views/
+│   │   ├── PlanningView.vue   ← Timeline Gantt + auto-schedule
+│   │   ├── TicketsView.vue    ← Lista ticket + import Jira
+│   │   ├── CapacityView.vue   ← Card utenti con carico
+│   │   └── SettingsView.vue   ← Gestione team + festivi
+│   └── components/
+│       ├── GanttTimeline.vue       ← Timeline settimanale
+│       ├── TicketTable.vue         ← Tabella ticket con badge
+│       ├── JiraSyncDialog.vue      ← Dialog import Jira
+│       └── OverallocationBanner.vue← Alert sovrallocazione
+├── env.d.ts
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── vite.config.ts             ← Vite + proxy API verso backend
 ```
-
-Sarà sviluppato nella Release 1 con:
-- Vue 3 + Composition API
-- Vite come bundler
-- PrimeVue per componenti UI
-- Pinia per state management
-- Vue Router per routing SPA
 
 ## Decisioni architetturali
 
@@ -135,27 +171,47 @@ con `z.infer<typeof schema>` se necessario.
 # Installazione dipendenze
 pnpm install
 
-# Test del pacchetto shared
+# Test pacchetto shared
 pnpm test:shared
-# oppure
-pnpm --filter @planning/shared test
 
-# Test con watch mode
-pnpm --filter @planning/shared test:watch
+# Test pacchetto backend
+pnpm test:backend
+
+# Test tutto
+pnpm test
+
+# Dev mode (backend + frontend)
+pnpm dev
 
 # Build di tutto
 pnpm build
-
-# Dev mode (quando backend e frontend saranno pronti)
-pnpm dev
 ```
 
-## Dipendenze chiave (shared)
+## Dipendenze chiave
+
+### @planning/shared
 
 | Pacchetto | Versione | Uso |
 |-----------|----------|-----|
 | `date-fns` | ^4.1.0 | Manipolazione date, calcolo working days |
 | `zod` | ^3.24.0 | Validazione runtime domain model |
-| `vitest` | ^3.0.0 | Test runner (devDependency) |
-| `typescript` | ^5.7.0 | Type checking (devDependency) |
+| `vitest` | ^3.0.0 | Test runner (devDep) |
+
+### @planning/backend
+
+| Pacchetto | Versione | Uso |
+|-----------|----------|-----|
+| `fastify` | ^5.2.0 | Framework HTTP |
+| `@fastify/cors` | ^10.0.0 | CORS per dev frontend |
+| `pino` | ^9.6.0 | Logging strutturato |
+
+### @planning/frontend
+
+| Pacchetto | Versione | Uso |
+|-----------|----------|-----|
+| `vue` | ^3.5.0 | Framework UI |
+| `pinia` | ^2.3.0 | State management |
+| `vue-router` | ^4.5.0 | Routing SPA |
+| `primevue` | ^4.3.0 | Componenti UI enterprise |
+| `vite` | ^6.1.0 | Build tool + dev server |
 

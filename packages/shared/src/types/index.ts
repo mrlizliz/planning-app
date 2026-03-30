@@ -6,6 +6,7 @@
 export type {
   AppRole,
   PlanningRole,
+  Office,
   User,
 } from './user.js'
 

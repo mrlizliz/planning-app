@@ -1,3 +1,21 @@
-// @planning/frontend — Entry point (placeholder Release 0)
-console.log('🎨 @planning/frontend ready — in attesa della Release 1')
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
+import PrimeVue from 'primevue/config'
+import Aura from '@primevue/themes/aura'
+import router from './router/index.js'
+import App from './App.vue'
+
+import 'primeicons/primeicons.css'
+
+const app = createApp(App)
+
+app.use(createPinia())
+app.use(router)
+app.use(PrimeVue, {
+  theme: {
+    preset: Aura,
+  },
+})
+
+app.mount('#app')
 

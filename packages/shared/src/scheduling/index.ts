@@ -21,3 +21,20 @@ export {
   type DailyCapacityResult,
 } from './capacity.js'
 
+export {
+  autoSchedule,
+  type SchedulerInput,
+  type SchedulerResult,
+  type ScheduledAssignment,
+  type SchedulerError,
+  type OverallocationAlert,
+  type HolidayEntry,
+} from './scheduler.js'
+
+export {
+  mapJiraIssueToTicket,
+  mapJiraIssuesToTickets,
+  type JiraIssue,
+  type JiraMappingResult,
+} from './jira-mapper.js'
+
