@@ -2,6 +2,13 @@
 // @planning/backend — Fastify Server
 // ============================================================
 
+import { config as dotenvConfig } from 'dotenv'
+import { resolve } from 'node:path'
+
+// Carica .env dalla root del monorepo
+dotenvConfig({ path: resolve(process.cwd(), '.env') })
+dotenvConfig({ path: resolve(process.cwd(), '..', '..', '.env') })
+
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { ticketRoutes } from './routes/tickets.js'

@@ -43,7 +43,7 @@ export const useTicketsStore = defineStore('tickets', () => {
     }
   }
 
-  async function syncFromJira(config: { baseUrl: string; email: string; apiToken: string; jql: string }) {
+  async function syncFromJira(config: { baseUrl?: string; email?: string; apiToken?: string; jql: string }) {
     loading.value = true
     error.value = null
     try {

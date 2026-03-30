@@ -38,11 +38,18 @@ export const ticketsApi = {
     request<Ticket>(`/tickets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) =>
     request<{ ok: boolean }>(`/tickets/${id}`, { method: 'DELETE' }),
-  syncJira: (config: { baseUrl: string; email: string; apiToken: string; jql: string }) =>
+  syncJira: (config: { baseUrl?: string; email?: string; apiToken?: string; jql: string }) =>
     request<{ imported: number; total: number; tickets: Array<{ id: string; jiraKey: string; warnings: string[] }> }>(
       '/tickets/sync-jira',
       { method: 'POST', body: JSON.stringify(config) },
     ),
+}
+
+// ---- Jira Config ----
+
+export const jiraApi = {
+  getConfig: () =>
+    request<{ baseUrl: string; email: string; hasToken: boolean; tokenHint: string; defaultJql: string }>('/jira/config'),
 }
 
 // ---- Users ----

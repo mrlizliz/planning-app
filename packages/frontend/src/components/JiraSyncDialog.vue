@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useTicketsStore } from '../stores/tickets.js'
+import { jiraApi } from '../api/client.js'
 
-defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{
   close: []
   synced: []
@@ -17,19 +18,48 @@ const config = ref({
   jql: 'project = PROJ ORDER BY priority DESC',
 })
 
+/** true se il token è configurato lato server (.env) */
+const serverHasToken = ref(false)
+const tokenHint = ref('')
+const configLoaded = ref(false)
+
 const result = ref<{ imported: number; total: number } | null>(null)
 const error = ref<string | null>(null)
 const syncing = ref(false)
 
+// Carica config dal backend quando il dialog si apre
+watch(() => props.visible, async (visible) => {
+  if (visible && !configLoaded.value) {
+    try {
+      const jiraConfig = await jiraApi.getConfig()
+      if (jiraConfig.baseUrl) config.value.baseUrl = jiraConfig.baseUrl
+      if (jiraConfig.email) config.value.email = jiraConfig.email
+      if (jiraConfig.defaultJql) config.value.jql = jiraConfig.defaultJql
+      serverHasToken.value = jiraConfig.hasToken
+      tokenHint.value = jiraConfig.tokenHint
+      configLoaded.value = true
+    } catch {
+      // Ignora — l'utente compilerà manualmente
+    }
+  }
+})
+
 async function handleSync() {
-  if (!config.value.baseUrl || !config.value.email || !config.value.apiToken) return
+  if (!config.value.baseUrl || !config.value.email) return
+  if (!serverHasToken.value && !config.value.apiToken) return
 
   syncing.value = true
   error.value = null
   result.value = null
 
   try {
-    const res = await ticketsStore.syncFromJira(config.value)
+    // Se il token è nel server, non lo inviamo dal frontend
+    const payload: Record<string, string> = { jql: config.value.jql }
+    if (config.value.baseUrl) payload.baseUrl = config.value.baseUrl
+    if (config.value.email) payload.email = config.value.email
+    if (config.value.apiToken) payload.apiToken = config.value.apiToken
+
+    const res = await ticketsStore.syncFromJira(payload as any)
     result.value = { imported: res!.imported, total: res!.total }
     emit('synced')
   } catch (e) {
@@ -76,9 +106,12 @@ function handleClose() {
         </div>
         <div class="form-group">
           <label>API Token</label>
+          <div v-if="serverHasToken && !config.apiToken" class="token-hint">
+            🔑 Token configurato nel server ({{ tokenHint }})
+          </div>
           <input
             v-model="config.apiToken"
-            placeholder="Jira API Token"
+            :placeholder="serverHasToken ? 'Lascia vuoto per usare il token del server' : 'Jira API Token'"
             class="input"
             type="password"
           />
@@ -128,12 +161,13 @@ function handleClose() {
 .form-group label { font-size: 0.8rem; font-weight: 600; color: #555; }
 .input { padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.85rem; outline: none; }
 .input:focus { border-color: #4361ee; }
+.token-hint { font-size: 0.78rem; color: #06d6a0; padding: 0.3rem 0; }
 .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: #4361ee; color: white; }
 .btn-secondary { background: #e9ecef; color: #333; }
 .btn-icon { background: none; border: none; cursor: pointer; color: #999; }
 .success-msg { background: #e8f5e9; color: #2e7d32; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
-.error-msg { background: #fde8e8; color: #d00000; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
+.error-msg { background: #fde8e8; color: #d00000; padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; word-break: break-word; }
 </style>
 

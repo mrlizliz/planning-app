@@ -14,6 +14,32 @@ import { JiraClient, JiraClientError } from '../services/jira-client.js'
 export async function ticketRoutes(app: FastifyInstance) {
   const prefix = '/api/tickets'
 
+  // ---- Jira config da .env ----
+
+  function getJiraEnv() {
+    return {
+      baseUrl: process.env.JIRA_BASE_URL ?? '',
+      email: process.env.JIRA_EMAIL ?? '',
+      apiToken: process.env.JIRA_API_TOKEN ?? '',
+      defaultJql: process.env.JIRA_DEFAULT_JQL ?? 'project = PROJ ORDER BY priority DESC',
+    }
+  }
+
+  // GET /api/jira/config — Restituisce config Jira precompilata (token mascherato)
+  app.get('/api/jira/config', async () => {
+    const env = getJiraEnv()
+    return {
+      baseUrl: env.baseUrl,
+      email: env.email,
+      hasToken: env.apiToken.length > 0,
+      // Mostra solo primi 8 e ultimi 4 caratteri del token per conferma
+      tokenHint: env.apiToken.length > 12
+        ? `${env.apiToken.substring(0, 8)}...${env.apiToken.substring(env.apiToken.length - 4)}`
+        : env.apiToken ? '****' : '',
+      defaultJql: env.defaultJql,
+    }
+  })
+
   // GET /api/tickets — Lista tutti i ticket
   app.get(prefix, async () => {
     const store = getStore()
@@ -87,22 +113,25 @@ export async function ticketRoutes(app: FastifyInstance) {
   // POST /api/tickets/sync-jira — Import da Jira
   app.post(`${prefix}/sync-jira`, async (request, reply) => {
     const body = request.body as {
-      baseUrl: string
-      email: string
-      apiToken: string
+      baseUrl?: string
+      email?: string
+      apiToken?: string
       jql: string
     }
 
-    if (!body.baseUrl || !body.email || !body.apiToken || !body.jql) {
-      return reply.status(400).send({ error: 'Campi obbligatori: baseUrl, email, apiToken, jql' })
+    // Usa valori dal body, con fallback da .env
+    const env = getJiraEnv()
+    const baseUrl = body.baseUrl || env.baseUrl
+    const email = body.email || env.email
+    const apiToken = body.apiToken || env.apiToken
+    const jql = body.jql
+
+    if (!baseUrl || !email || !apiToken || !jql) {
+      return reply.status(400).send({ error: 'Campi obbligatori: baseUrl, email, apiToken, jql. Configura .env o compila tutti i campi.' })
     }
 
     try {
-      const client = new JiraClient({
-        baseUrl: body.baseUrl,
-        email: body.email,
-        apiToken: body.apiToken,
-      })
+      const client = new JiraClient({ baseUrl, email, apiToken })
 
       const searchResult = await client.searchIssues(body.jql)
       const store = getStore()
