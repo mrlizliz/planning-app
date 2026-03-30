@@ -64,9 +64,11 @@ export class JiraClient {
       'priority',
       'status',
       'parent',
+      'issuelinks',
     ].join(',')
 
-    const url = `${this.baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields}`
+    // Usa il nuovo endpoint /search/jql (il vecchio /search è stato rimosso, ritorna 410 Gone)
+    const url = `${this.baseUrl}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields}`
 
     const response = await this.fetchWithRetry(url)
     return response as JiraSearchResult
@@ -85,6 +87,7 @@ export class JiraClient {
       'priority',
       'status',
       'parent',
+      'issuelinks',
     ].join(',')
 
     const url = `${this.baseUrl}/rest/api/3/issue/${issueKey}?fields=${fields}`
