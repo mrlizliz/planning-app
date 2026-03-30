@@ -118,7 +118,12 @@ function handleClose() {
         </div>
         <div class="form-group">
           <label>JQL Query</label>
-          <input v-model="config.jql" placeholder="project = PROJ" class="input" />
+          <textarea
+            v-model="config.jql"
+            placeholder="project = PROJ ORDER BY priority DESC"
+            class="input jql-textarea"
+            rows="3"
+          />
         </div>
 
         <div v-if="result" class="success-msg">
@@ -167,6 +172,10 @@ function handleClose() {
   transition: var(--transition-theme);
 }
 .input:focus { border-color: var(--accent); }
+.jql-textarea {
+  resize: vertical; min-height: 60px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem; line-height: 1.4;
+}
 .token-hint { font-size: 0.78rem; color: #06d6a0; padding: 0.3rem 0; }
 .btn { padding: 0.5rem 1rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
