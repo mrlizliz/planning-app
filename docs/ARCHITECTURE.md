@@ -33,6 +33,7 @@ packages/shared/
 │   │   ├── ticket.ts           ← Ticket, JiraPriority, TicketStatus, TicketPhase, TicketWarning
 │   │   ├── assignment.ts       ← Assignment (ticket → persona con allocazione %)
 │   │   ├── calendar.ts         ← Holiday, CalendarException, Absence, RecurringMeeting, WorkingCalendar
+│   │   ├── outlook.ts          ← OutlookEvent, OutlookCapacityBlock, OutlookFilterConfig
 │   │   ├── milestone.ts        ← Milestone, MilestoneStatus
 │   │   ├── release.ts          ← Release con forecast
 │   │   ├── dependency.ts       ← Dependency (finish_to_start, parallel, blocking)
@@ -40,15 +41,21 @@ packages/shared/
 │   ├── scheduling/             ← Funzioni pure di scheduling
 │   │   ├── index.ts            ← Re-export
 │   │   ├── calendar.ts         ← isWorkingDay, getWorkingDays, addWorkingDays, nextWorkingDay
-│   │   └── capacity.ts         ← calculateDailyCapacity, applyAllocation, calculateDurationDays,
-│   │                              getMeetingMinutesForDay, isOverallocated
+│   │   ├── capacity.ts         ← calculateDailyCapacity, applyAllocation, calculateDurationDays,
+│   │   │                          getMeetingMinutesForDay, isOverallocated
+│   │   ├── scheduler.ts        ← autoSchedule, scheduleDayByDay (day-by-day con capacità reale)
+│   │   ├── jira-mapper.ts      ← mapJiraIssueToTicket, mapJiraIssuesToTickets
+│   │   └── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
 │   └── validators/             ← Zod schemas per ogni entità
 │       └── index.ts            ← Tutti i validatori (userSchema, ticketSchema, ecc.)
 ├── tests/
 │   ├── validators.test.ts      ← Test T0-01, T0-02 (schema validation)
 │   └── scheduling/
 │       ├── calendar.test.ts    ← Test T0-05, T0-06 (working days, festivi)
-│       └── capacity.test.ts    ← Test T0-03, T0-04 (capacity, duration)
+│       ├── capacity.test.ts    ← Test T0-03, T0-04 (capacity, duration)
+│       ├── scheduler.test.ts   ← Test T1-U11…U15 (auto-schedule, locked, priority)
+│       ├── jira-mapper.test.ts ← Test T1-U01…U03 (mapping, warning, batch)
+│       └── capacity-real.test.ts ← Test T2-U01…U14 (capacità reale, Outlook filtri)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -61,6 +68,15 @@ packages/shared/
 | `autoSchedule(input)` | `scheduler.ts` | Auto-scheduling completo: priorità, locked, sovrallocazione |
 | `mapJiraIssueToTicket(issue)` | `jira-mapper.ts` | Converte issue Jira → Ticket interno |
 | `mapJiraIssuesToTickets(issues, existing)` | `jira-mapper.ts` | Mapping batch con preservazione override |
+
+### Funzioni scheduling aggiunte in Release 2
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `scheduleDayByDay(...)` | `scheduler.ts` | Scheduling giorno per giorno con capacità reale |
+| `filterOutlookEvents(events, config)` | `outlook-mapper.ts` | Filtra eventi Outlook per showAs, durata, opzionalità |
+| `mapEventsToCapacityBlocks(events)` | `outlook-mapper.ts` | Converte eventi → blocchi di capacità ridotta |
+| `aggregateCapacityByDay(blocks)` | `outlook-mapper.ts` | Aggrega blocchi per giorno |
 
 ## Pacchetto: @planning/backend
 
@@ -77,11 +93,13 @@ packages/backend/
 │       ├── users.ts          ← CRUD utenti
 │       ├── assignments.ts    ← CRUD assignment
 │       ├── calendar.ts       ← Holidays, exceptions, absences, meetings
-│       └── scheduler.ts      ← Trigger auto-scheduling
+│       ├── scheduler.ts      ← Trigger auto-scheduling
+│       └── capacity.ts       ← GET breakdown giornaliero per utente
 ├── data/
 │   └── store.json            ← 💾 Dati persistenti (in .gitignore)
 ├── tests/
-│   └── api.test.ts           ← Integration test API (T1-I01…I04)
+│   ├── api.test.ts           ← Integration test API (T1-I01…I04)
+│   └── capacity.test.ts      ← Integration test capacità (T2-I01…I04)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -110,7 +128,7 @@ packages/frontend/
 │   ├── views/
 │   │   ├── PlanningView.vue   ← Timeline Gantt + auto-schedule
 │   │   ├── TicketsView.vue    ← Lista ticket + import Jira
-│   │   ├── CapacityView.vue   ← Card utenti con carico
+│   │   ├── CapacityView.vue   ← Heatmap capacità + CRUD assenze + CRUD meeting
 │   │   └── SettingsView.vue   ← Gestione team + festivi
 │   └── components/
 │       ├── GanttTimeline.vue       ← Timeline settimanale

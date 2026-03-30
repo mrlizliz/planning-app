@@ -232,6 +232,44 @@ Override puntuale sul calendario deploy.
 | `allowed` | boolean | true = deploy extra, false = blocco |
 | `notes` | string \| null | |
 
+## Tipi Outlook (Release 2)
+
+### OutlookEvent
+
+Evento da Microsoft Graph Calendar API (usato dall'outlook-mapper).
+
+| Campo | Tipo | Note |
+|-------|------|------|
+| `id` | string | |
+| `subject` | string | Titolo evento |
+| `start` | string | ISO datetime |
+| `end` | string | ISO datetime |
+| `showAs` | `'free' \| 'tentative' \| 'busy' \| 'oof' \| 'workingElsewhere' \| 'unknown'` | |
+| `isAllDay` | boolean | Se true, capacità = 0 per quel giorno |
+| `isOptional` | boolean | Se true, evento ignorabile |
+| `isCancelled` | boolean | |
+| `organizerEmail` | string \| null | |
+
+### OutlookCapacityBlock
+
+Blocco di capacità ridotta derivato da un evento.
+
+| Campo | Tipo | Note |
+|-------|------|------|
+| `date` | string | YYYY-MM-DD |
+| `minutes` | number | Minuti di capacità ridotta |
+| `allDay` | boolean | true = giornata intera |
+| `source` | string | Nome evento originale |
+
+### OutlookFilterConfig
+
+| Campo | Tipo | Default |
+|-------|------|---------|
+| `includeShowAs` | string[] | `['busy', 'oof']` |
+| `minDurationMinutes` | number | 15 |
+| `excludeOptional` | boolean | true |
+| `excludeCancelled` | boolean | true |
+
 ## Formule di scheduling
 
 ### Capacità netta giornaliera
@@ -264,6 +302,23 @@ end_date = addWorkingDays(start_date, duration_days, calendar_config)
 ```
 
 Dove `addWorkingDays` salta weekend, festivi e rispetta eccezioni manuali.
+
+### Scheduling day-by-day (Release 2)
+
+```
+remaining = estimate_minutes
+for each working_day starting from start_date:
+  daily_net = calculateDailyCapacity(user, day, absences, meetings)
+  effective = daily_net × (allocation% / 100)
+  if effective > 0:
+    remaining -= effective
+    mark day as worked
+  if remaining ≤ 0:
+    end_date = current_day
+    break
+```
+
+Questo approccio sostituisce la formula piatta `duration = ceil(estimate / capacity)` e produce date realistiche che tengono conto di meeting e assenze giorno per giorno.
 
 ## Convenzione unità di misura
 
