@@ -65,6 +65,7 @@ export class JiraClient {
       'status',
       'parent',
       'issuelinks',
+      'fixVersions',
     ].join(',')
 
     // Usa il nuovo endpoint /search/jql (il vecchio /search è stato rimosso, ritorna 410 Gone)
@@ -88,6 +89,7 @@ export class JiraClient {
       'status',
       'parent',
       'issuelinks',
+      'fixVersions',
     ].join(',')
 
     const url = `${this.baseUrl}/rest/api/3/issue/${issueKey}?fields=${fields}`

@@ -45,6 +45,9 @@ export interface JiraIssue {
       inwardIssue?: { key: string } | null
       outwardIssue?: { key: string } | null
     }> | null
+    fixVersions?: Array<{
+      name: string
+    }> | null
   }
 }
 
@@ -98,9 +101,13 @@ export function mapJiraIssueToTicket(
 
   // Assignee
   const assigneeEmail = issue.fields.assignee?.emailAddress ?? null
+  const assigneeName = issue.fields.assignee?.displayName ?? null
   if (!assigneeEmail) {
     warnings.push('missing_assignee')
   }
+
+  // Fix versions
+  const fixVersions = (issue.fields.fixVersions ?? []).map((v) => v.name)
 
   // Priorità
   const rawPriority = issue.fields.priority?.name?.toLowerCase() ?? 'medium'
@@ -120,7 +127,9 @@ export function mapJiraIssueToTicket(
     status: 'backlog',
     phase: 'dev',
     jiraAssigneeEmail: assigneeEmail,
+    jiraAssigneeName: assigneeName,
     parentKey: issue.fields.parent?.key ?? null,
+    fixVersions,
     milestoneId: null,
     releaseId: null,
     locked: false,

@@ -33,7 +33,7 @@ function seedTicket(id: string, estimateMinutes: number) {
   store.tickets.set(id, {
     id, jiraKey: `PROJ-${id}`, summary: `Ticket ${id}`, description: null,
     estimateMinutes, jiraPriority: 'medium', priorityOverride: null,
-    status: 'backlog', phase: 'dev', jiraAssigneeEmail: null, parentKey: null,
+    status: 'backlog', phase: 'dev', jiraAssigneeEmail: null, jiraAssigneeName: null, parentKey: null, fixVersions: [],
     milestoneId: null, releaseId: null, locked: false, warnings: [],
     lastSyncedAt: now, createdAt: now, updatedAt: now,
   })

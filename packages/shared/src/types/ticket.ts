@@ -38,8 +38,12 @@ export interface Ticket {
   phase: TicketPhase
   /** Assignee Jira originale */
   jiraAssigneeEmail: string | null
+  /** Nome visualizzato dell'assignee Jira */
+  jiraAssigneeName: string | null
   /** Epic o parent key da Jira */
   parentKey: string | null
+  /** Fix versions da Jira */
+  fixVersions: string[]
   /** ID milestone associata */
   milestoneId: string | null
   /** ID release associata */
