@@ -610,3 +610,112 @@ Store aggiornato con `scenarios: Map<string, Scenario>`.
 - ❌ Drag & drop su timeline
 - ❌ Test E2E Playwright
 
+---
+
+## Hotfix — Miglioramenti Assenze e Meeting Ricorrenti
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
+
+### Cosa è stato fatto
+
+#### 1. Assenze multi-giorno
+
+- `Absence.date` → `Absence.startDate` + `Absence.endDate` (range di date)
+- Le assenze possono ora coprire un intervallo (es. ferie dal 10 al 14 aprile)
+- Per assenze di 1 giorno, `startDate === endDate`
+- Aggiornati: tipo, validatore Zod, scheduler, forecast, capacity route, frontend form (Da — A)
+
+#### 2. Meeting ricorrenti su più giorni
+
+- `RecurringMeeting.dayOfWeek: number | null` → `RecurringMeeting.daysOfWeek: number[]`
+- I meeting possono ora svolgersi su più giorni della settimana (es. Lun/Mer/Ven)
+- Per frequency `daily` il campo è `[]` (ignorato, si applica a tutti i lun-ven)
+- Frontend: sostituite le select con checkboxes (Lun/Mar/Mer/Gio/Ven)
+
+#### 3. Prepopolamento form per persona selezionata
+
+- Quando si seleziona un utente nella griglia capacità, i form assenze e meeting pre-compilano automaticamente il campo "Persona" con l'utente selezionato
+
+#### 4. File aggiornati
+
+| Area | File |
+|------|------|
+| **Tipo** | `shared/src/types/calendar.ts` |
+| **Validatore** | `shared/src/validators/index.ts` |
+| **Scheduling** | `shared/src/scheduling/capacity.ts`, `scheduler.ts`, `forecast.ts` |
+| **Backend** | `backend/src/routes/capacity.ts` |
+| **Frontend** | `frontend/src/views/CapacityView.vue` |
+| **Test** | `shared/tests/validators.test.ts`, `shared/tests/scheduling/capacity-real.test.ts`, `backend/tests/capacity.test.ts` |
+| **Docs** | `docs/DOMAIN_MODEL.md`, `docs/RELEASE_LOG.md` |
+| **Data** | `backend/data/store.json` (migrato) |
+
+**Totale test: 232** (196 shared + 36 backend) — tutti passano
+
+---
+
+## Refactoring — Code Quality & DRY
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completato
+
+### Cosa è stato fatto
+
+#### 1. Estrazione `getUserDailyCapacity` in `capacity.ts`
+
+La funzione era duplicata in `scheduler.ts` (come `getUserDailyCapacity`) e `forecast.ts` (come `getUserDayCapacity`) con logica identica. Ora è un singolo export in `shared/scheduling/capacity.ts`:
+- Compone `getMeetingMinutesForDay` + `calculateDailyCapacity`
+- Usata da scheduler, forecast e dalla route capacity del backend
+
+#### 2. Estrazione `buildSchedulerInput()` in helper backend
+
+La costruzione di `SchedulerInput` dallo store era ripetuta **4 volte** nelle route: `scheduler.ts`, `scenarios.ts` (forecast, KPI, report). Ora è un singolo helper in `backend/helpers/scheduler-input.ts`.
+
+#### 3. Consolidamento import nello store
+
+Gli import da `@planning/shared` nel file `store/index.ts` erano su 11 righe separate. Consolidati in un singolo `import type { ... }`.
+
+#### 4. Pulizia import inutilizzati
+
+Rimossi import non più utilizzati dopo l'estrazione delle funzioni (`calculateDailyCapacity`, `calculateDurationDays`, `getMeetingMinutesForDay` in scheduler.ts; `calculateDailyCapacity`, `applyAllocation`, `getMeetingMinutesForDay` in forecast.ts).
+
+#### 5. Allineamento versioni pacchetti
+
+`@planning/shared` da `0.0.0` a `0.1.0` per allinearsi con backend e frontend.
+
+#### 6. Aggiornamento documentazione
+
+- `README.md` aggiornato con stato reale (Release 5, stack corretto, 232 test)
+- `AI_CONTEXT.md` aggiornato con stato e refactoring recenti
+- `docs/ARCHITECTURE.md` aggiornato con cartella `helpers/` e funzioni estratte
+- `docs/NEXT_FEATURES.md` creato con checklist feature future
+
+**Totale test: 232** (196 shared + 36 backend) — tutti passano
+
+---
+
+## Feature Batch — Alta + Media + Bassa Priorità + Debito Tecnico
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completato
+
+### Obiettivo
+
+Implementare tutte le feature della checklist `docs/NEXT_FEATURES.md`.
+
+### Completate
+
+- **6/6 Alta priorità**: Prisma+SQLite, JWT Auth, Playwright E2E, PUT validation, Toast error handling, Drag&Drop Gantt
+- **6/9 Media priorità**: Ticket→milestone/release UI, Filtri avanzati, Scenario scheduling, Import deps Jira, Paginazione Jira, Bulk update
+- **4/12 Bassa priorità**: Dark mode, Docker Compose, GitHub Actions CI, OpenAPI/Swagger
+- **4/6 Debito tecnico**: Sovrallocazione precisa, Calendar per utente (verificato ok), TS strict frontend, 9 test edge case scheduler
+
+### Test aggiunti
+
+| File | Casi |
+|------|------|
+| `backend/tests/new-features.test.ts` | 10 test (auth JWT, PUT validation, bulk update, scenario schedule) |
+| `shared/tests/scheduling/scheduler-edge-cases.test.ts` | 9 test (estimate 0/null, user mancante, capacity 0, locked, 2 assign, weekend, ferie, stima enorme) |
+
+**Totale test: 251** (205 shared + 46 backend) — tutti passano
+

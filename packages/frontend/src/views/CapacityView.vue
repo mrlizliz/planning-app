@@ -16,11 +16,11 @@ const capacityData = ref<any>(null)
 const loadingCapacity = ref(false)
 
 // Form assenza
-const newAbsence = ref({ userId: '', date: '', type: 'vacation' as const, halfDay: false })
+const newAbsence = ref({ userId: '', startDate: '', endDate: '', type: 'vacation' as const, halfDay: false })
 // Form meeting
 const newMeeting = ref({
   userId: '' as string, name: '', type: 'standup' as const,
-  durationMinutes: 15, frequency: 'daily' as const, dayOfWeek: null as number | null,
+  durationMinutes: 15, frequency: 'daily' as const, daysOfWeek: [] as number[],
 })
 
 onMounted(async () => {
@@ -38,6 +38,9 @@ async function loadMeetings() { meetings.value = await meetingsApi.list() }
 // ---- Carico capacità utente selezionato ----
 watch(selectedUserId, async (uid) => {
   if (!uid) { capacityData.value = null; return }
+  // Prepopola i form per la persona selezionata
+  newAbsence.value.userId = uid
+  newMeeting.value.userId = uid
   loadingCapacity.value = true
   try {
     const res = await fetch(`/api/capacity/${uid}?from=${getMonday()}&to=${getFriday4Weeks()}`)
@@ -82,12 +85,20 @@ const usersWithLoad = computed(() =>
 )
 
 async function addAbsence() {
-  if (!newAbsence.value.userId || !newAbsence.value.date) return
+  if (!newAbsence.value.userId || !newAbsence.value.startDate) return
+  const endDate = newAbsence.value.endDate || newAbsence.value.startDate
   await absencesApi.create({
-    id: crypto.randomUUID(), ...newAbsence.value, notes: null,
+    id: crypto.randomUUID(),
+    userId: newAbsence.value.userId,
+    startDate: newAbsence.value.startDate,
+    endDate,
+    type: newAbsence.value.type,
+    halfDay: newAbsence.value.halfDay,
+    notes: null,
   } as Absence)
   await loadAbsences()
-  newAbsence.value.date = ''
+  newAbsence.value.startDate = ''
+  newAbsence.value.endDate = ''
 }
 async function removeAbsence(id: string) {
   await absencesApi.delete(id); await loadAbsences()
@@ -101,10 +112,11 @@ async function addMeeting() {
     type: newMeeting.value.type,
     durationMinutes: newMeeting.value.durationMinutes,
     frequency: newMeeting.value.frequency,
-    dayOfWeek: newMeeting.value.frequency === 'daily' ? null : newMeeting.value.dayOfWeek,
+    daysOfWeek: newMeeting.value.frequency === 'daily' ? [] : [...newMeeting.value.daysOfWeek],
   } as RecurringMeeting)
   await loadMeetings()
   newMeeting.value.name = ''
+  newMeeting.value.daysOfWeek = []
 }
 async function removeMeeting(id: string) {
   await meetingsApi.delete(id); await loadMeetings()
@@ -113,7 +125,20 @@ async function removeMeeting(id: string) {
 const absenceTypes = ['vacation','sick','permit','training','other']
 const meetingTypes = ['standup','refinement','sprint_planning','retrospective','one_on_one','custom']
 const frequencies = ['daily','weekly','biweekly','monthly']
-const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
+const dayCheckboxes = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mer' },
+  { value: 4, label: 'Gio' },
+  { value: 5, label: 'Ven' },
+]
+const weekdayNames: Record<number, string> = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mer', 4: 'Gio', 5: 'Ven', 6: 'Sab' }
+
+function toggleDay(day: number) {
+  const idx = newMeeting.value.daysOfWeek.indexOf(day)
+  if (idx >= 0) newMeeting.value.daysOfWeek.splice(idx, 1)
+  else newMeeting.value.daysOfWeek.push(day)
+}
 </script>
 
 <template>
@@ -178,7 +203,10 @@ const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
           <option value="">— Persona —</option>
           <option v-for="u in usersStore.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
         </select>
-        <input v-model="newAbsence.date" type="date" class="input" />
+        <label class="input-label">Da</label>
+        <input v-model="newAbsence.startDate" type="date" class="input" />
+        <label class="input-label">A</label>
+        <input v-model="newAbsence.endDate" type="date" class="input" />
         <select v-model="newAbsence.type" class="input input-sm">
           <option v-for="t in absenceTypes" :key="t" :value="t">{{ t }}</option>
         </select>
@@ -188,7 +216,7 @@ const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
       <div class="list">
         <div v-for="a in absences" :key="a.id" class="list-item">
           <span>
-            <strong>{{ formatDateIT(a.date) }}</strong>
+            <strong>{{ formatDateIT(a.startDate) }}<template v-if="a.startDate !== a.endDate"> — {{ formatDateIT(a.endDate) }}</template></strong>
             — {{ usersStore.users.find(u=>u.id===a.userId)?.displayName ?? a.userId }}
             <span class="badge">{{ a.type }}{{ a.halfDay ? ' (½)' : '' }}</span>
           </span>
@@ -211,9 +239,12 @@ const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
         <select v-model="newMeeting.frequency" class="input input-sm">
           <option v-for="f in frequencies" :key="f" :value="f">{{ f }}</option>
         </select>
-        <select v-if="newMeeting.frequency !== 'daily'" v-model.number="newMeeting.dayOfWeek" class="input input-sm">
-          <option v-for="(name, i) in weekdays" :key="i" :value="i">{{ name || '—' }}</option>
-        </select>
+        <div v-if="newMeeting.frequency !== 'daily'" class="day-checkboxes">
+          <label v-for="dc in dayCheckboxes" :key="dc.value" class="checkbox-label">
+            <input type="checkbox" :checked="newMeeting.daysOfWeek.includes(dc.value)" @change="toggleDay(dc.value)" />
+            {{ dc.label }}
+          </label>
+        </div>
         <select v-model="newMeeting.userId" class="input input-sm">
           <option value="">👥 Team</option>
           <option v-for="u in usersStore.users" :key="u.id" :value="u.id">{{ u.displayName }}</option>
@@ -224,7 +255,7 @@ const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
         <div v-for="m in meetings" :key="m.id" class="list-item">
           <span>
             <strong>{{ m.name }}</strong> — {{ m.durationMinutes }}min {{ m.frequency }}
-            <span v-if="m.dayOfWeek !== null" class="badge">{{ weekdays[m.dayOfWeek] || '?' }}</span>
+            <span v-if="m.daysOfWeek && m.daysOfWeek.length > 0" class="badge">{{ m.daysOfWeek.map(d => weekdayNames[d] || '?').join(', ') }}</span>
             <span class="badge">{{ m.userId ? (usersStore.users.find(u=>u.id===m.userId)?.displayName ?? m.userId) : '👥 Team' }}</span>
           </span>
           <button class="btn-icon btn-icon-danger" @click="removeMeeting(m.id)"><i class="pi pi-trash" /></button>
@@ -285,5 +316,7 @@ const weekdays = ['','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì']
 .badge { background: #e9ecef; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; color: #555; margin-left: 0.25rem; }
 .text-muted { color: #999; font-size: 0.82rem; }
 .checkbox-label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; }
+.day-checkboxes { display: flex; gap: 0.5rem; align-items: center; }
+.input-label { font-size: 0.82rem; color: #666; white-space: nowrap; }
 </style>
 

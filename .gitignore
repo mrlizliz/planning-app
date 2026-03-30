@@ -33,3 +33,4 @@ setup-log.txt
 packages/backend/data/
 
 
+packages/backend/prisma/data/

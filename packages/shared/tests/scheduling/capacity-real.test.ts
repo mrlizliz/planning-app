@@ -155,7 +155,7 @@ describe('T2-U05: Alert capacità zero', () => {
 describe('T2-U06: Meeting ricorrente daily', () => {
   const meetings: RecurringMeeting[] = [{
     id: 'm-1', userId: null, name: 'Daily', type: 'standup',
-    durationMinutes: 15, frequency: 'daily', dayOfWeek: null,
+    durationMinutes: 15, frequency: 'daily', daysOfWeek: [],
   }]
 
   it('15min ogni giorno lavorativo (lun-ven)', () => {
@@ -174,7 +174,7 @@ describe('T2-U06: Meeting ricorrente daily', () => {
 describe('T2-U07: Meeting ricorrente settimanale', () => {
   const meetings: RecurringMeeting[] = [{
     id: 'm-2', userId: null, name: 'Refinement', type: 'refinement',
-    durationMinutes: 60, frequency: 'weekly', dayOfWeek: 3, // mercoledì
+    durationMinutes: 60, frequency: 'weekly', daysOfWeek: [3], // mercoledì
   }]
 
   it('60min solo il mercoledì', () => {
@@ -310,7 +310,7 @@ describe('T2-U14: Scheduler con meeting riduce capacità → durata aumenta', ()
     const meetings: RecurringMeeting[] = [{
       id: 'm-daily', userId: null, name: 'Daily',
       type: 'standup', durationMinutes: 60,
-      frequency: 'daily', dayOfWeek: null,
+      frequency: 'daily', daysOfWeek: [],
     }]
 
     const input: SchedulerInput = {
@@ -336,7 +336,7 @@ describe('T2-U14: Scheduler con meeting riduce capacità → durata aumenta', ()
 
   it('ticket 16h con persona in ferie lunedì → inizia martedì', () => {
     const absences: Absence[] = [{
-      id: 'abs-1', userId: 'user-1', date: '2026-04-06',
+      id: 'abs-1', userId: 'user-1', startDate: '2026-04-06', endDate: '2026-04-06',
       type: 'vacation', halfDay: false, notes: null,
     }]
 

@@ -191,7 +191,7 @@ describe('getMeetingMinutesForDay', () => {
       type: 'standup',
       durationMinutes: 15,
       frequency: 'daily',
-      dayOfWeek: null,
+      daysOfWeek: [],
     },
     {
       id: 'm2',
@@ -200,7 +200,7 @@ describe('getMeetingMinutesForDay', () => {
       type: 'refinement',
       durationMinutes: 60,
       frequency: 'weekly',
-      dayOfWeek: 3, // mercoledì
+      daysOfWeek: [3], // mercoledì
     },
     {
       id: 'm3',
@@ -209,7 +209,7 @@ describe('getMeetingMinutesForDay', () => {
       type: 'retrospective',
       durationMinutes: 60,
       frequency: 'biweekly',
-      dayOfWeek: 5, // venerdì
+      daysOfWeek: [5], // venerdì
     },
   ]
 

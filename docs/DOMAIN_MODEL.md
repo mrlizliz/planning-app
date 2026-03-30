@@ -132,20 +132,21 @@ Eccezione: giorno normalmente non lavorativo diventa lavorativo.
 
 ### Absence
 
-Assenza individuale di una persona.
+Assenza individuale di una persona. Può coprire uno o più giorni (range).
 
 | Campo | Tipo | Note |
 |-------|------|------|
 | `id` | string | |
 | `userId` | string | FK → User |
-| `date` | string | ISO YYYY-MM-DD |
+| `startDate` | string | ISO YYYY-MM-DD — Data inizio assenza |
+| `endDate` | string | ISO YYYY-MM-DD — Data fine assenza (uguale a startDate per assenza di 1 giorno) |
 | `type` | AbsenceType | `vacation \| sick \| permit \| training \| other` |
-| `halfDay` | boolean | true = mezza giornata (capacità dimezzata) |
+| `halfDay` | boolean | true = mezza giornata (capacità dimezzata) — applicato a tutti i giorni del range |
 | `notes` | string \| null | |
 
 ### RecurringMeeting
 
-Meeting ricorrente che riduce la capacità.
+Meeting ricorrente che riduce la capacità. Può svolgersi su più giorni della settimana.
 
 | Campo | Tipo | Note |
 |-------|------|------|
@@ -155,7 +156,7 @@ Meeting ricorrente che riduce la capacità.
 | `type` | MeetingType | `standup \| refinement \| sprint_planning \| retrospective \| one_on_one \| custom` |
 | `durationMinutes` | number | 1-480 |
 | `frequency` | MeetingFrequency | `daily \| weekly \| biweekly \| monthly` |
-| `dayOfWeek` | number \| null | 0=dom, 1=lun, ..., 6=sab. null per daily |
+| `daysOfWeek` | number[] | Giorni della settimana (0=dom, 1=lun, ..., 6=sab). Array vuoto per daily. Es. `[1,3,5]` = lun/mer/ven |
 
 ### WorkingCalendar
 

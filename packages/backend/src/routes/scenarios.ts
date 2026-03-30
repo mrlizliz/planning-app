@@ -15,10 +15,10 @@ import {
   generateReleaseReport,
   toCSV,
   autoSchedule,
-  type SchedulerInput,
 } from '@planning/shared'
 import type { Scenario } from '@planning/shared'
 import { format, addDays } from 'date-fns'
+import { buildSchedulerInput } from '../helpers/scheduler-input.js'
 
 export async function scenarioRoutes(app: FastifyInstance) {
   // ---- Scenarios CRUD ----
@@ -106,6 +106,58 @@ export async function scenarioRoutes(app: FastifyInstance) {
     return { ok: true }
   })
 
+  // POST /api/scenarios/:id/schedule — Esegue auto-schedule dentro lo scenario (senza impattare stato corrente)
+  app.post('/api/scenarios/:id/schedule', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const store = getStore()
+    const scenario = store.scenarios.get(id)
+    if (!scenario) {
+      return reply.status(404).send({ error: 'Scenario non trovato' })
+    }
+
+    // Ricostruisci gli assignment dallo snapshot dello scenario
+    const scenarioAssignments = scenario.snapshot.assignments.map((sa) => ({
+      id: sa.assignmentId,
+      ticketId: sa.ticketId,
+      userId: sa.userId,
+      role: sa.role,
+      allocationPercent: sa.allocationPercent,
+      startDate: sa.startDate,
+      endDate: sa.endDate,
+      durationDays: sa.durationDays,
+      locked: sa.locked,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }))
+
+    const baseInput = buildSchedulerInput()
+    const scenarioInput = { ...baseInput, assignments: scenarioAssignments }
+    const result = autoSchedule(scenarioInput)
+
+    // Aggiorna le date nello snapshot dello scenario
+    const updatedAssignments = scenario.snapshot.assignments.map((sa) => {
+      const scheduled = result.scheduled.find((s) => s.assignmentId === sa.assignmentId)
+      if (scheduled && !sa.locked) {
+        return { ...sa, startDate: scheduled.startDate, endDate: scheduled.endDate, durationDays: scheduled.durationDays }
+      }
+      return sa
+    })
+
+    const updatedScenario = {
+      ...scenario,
+      snapshot: { ...scenario.snapshot, assignments: updatedAssignments },
+      updatedAt: new Date().toISOString(),
+    }
+    store.scenarios.set(id, updatedScenario)
+
+    return {
+      scheduledCount: result.scheduled.length,
+      errorsCount: result.errors.length,
+      overallocationsCount: result.overallocations.length,
+      scenario: updatedScenario,
+    }
+  })
+
   // ---- Forecast ----
 
   // GET /api/forecast/weekly?from=...&to=...
@@ -116,27 +168,7 @@ export async function scenarioRoutes(app: FastifyInstance) {
     const fromDate = query.from ?? format(new Date(), 'yyyy-MM-dd')
     const toDate = query.to ?? format(addDays(new Date(), 28), 'yyyy-MM-dd')
 
-    // Run scheduler to get scheduled assignments
-    const schedInput: SchedulerInput = {
-      tickets: Array.from(store.tickets.values()),
-      assignments: Array.from(store.assignments.values()),
-      users: Array.from(store.users.values()),
-      calendar: {
-        holidays: store.calendar.holidays
-          .filter((h) => h.office === null || h.office === undefined)
-          .map((h) => h.date),
-        exceptions: store.calendar.exceptions.map((e) => e.date),
-      },
-      holidays: store.calendar.holidays.map((h) => ({
-        date: h.date,
-        office: h.office ?? null,
-      })),
-      absences: Array.from(store.absences.values()),
-      meetings: Array.from(store.meetings.values()),
-      dependencies: Array.from(store.dependencies.values()),
-      planningStartDate: fromDate,
-    }
-
+    const schedInput = buildSchedulerInput(fromDate)
     const schedResult = autoSchedule(schedInput)
 
     const forecast = calculateWeeklyForecast({
@@ -159,26 +191,7 @@ export async function scenarioRoutes(app: FastifyInstance) {
   app.get('/api/kpis', async () => {
     const store = getStore()
 
-    const schedInput: SchedulerInput = {
-      tickets: Array.from(store.tickets.values()),
-      assignments: Array.from(store.assignments.values()),
-      users: Array.from(store.users.values()),
-      calendar: {
-        holidays: store.calendar.holidays
-          .filter((h) => h.office === null || h.office === undefined)
-          .map((h) => h.date),
-        exceptions: store.calendar.exceptions.map((e) => e.date),
-      },
-      holidays: store.calendar.holidays.map((h) => ({
-        date: h.date,
-        office: h.office ?? null,
-      })),
-      absences: Array.from(store.absences.values()),
-      meetings: Array.from(store.meetings.values()),
-      dependencies: Array.from(store.dependencies.values()),
-      planningStartDate: format(new Date(), 'yyyy-MM-dd'),
-    }
-
+    const schedInput = buildSchedulerInput()
     const schedResult = autoSchedule(schedInput)
 
     // Calcola capacità totale disponibile (prossimi 30 giorni × utenti attivi)
@@ -204,26 +217,7 @@ export async function scenarioRoutes(app: FastifyInstance) {
     const query = request.query as { format?: string }
     const store = getStore()
 
-    const schedInput: SchedulerInput = {
-      tickets: Array.from(store.tickets.values()),
-      assignments: Array.from(store.assignments.values()),
-      users: Array.from(store.users.values()),
-      calendar: {
-        holidays: store.calendar.holidays
-          .filter((h) => h.office === null || h.office === undefined)
-          .map((h) => h.date),
-        exceptions: store.calendar.exceptions.map((e) => e.date),
-      },
-      holidays: store.calendar.holidays.map((h) => ({
-        date: h.date,
-        office: h.office ?? null,
-      })),
-      absences: Array.from(store.absences.values()),
-      meetings: Array.from(store.meetings.values()),
-      dependencies: Array.from(store.dependencies.values()),
-      planningStartDate: format(new Date(), 'yyyy-MM-dd'),
-    }
-
+    const schedInput = buildSchedulerInput()
     const schedResult = autoSchedule(schedInput)
 
     const rows = generatePlanningReport(

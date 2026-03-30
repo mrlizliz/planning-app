@@ -17,6 +17,7 @@ export {
   calculateDurationDays,
   getMeetingMinutesForDay,
   isOverallocated,
+  getUserDailyCapacity,
   type DailyCapacityInput,
   type DailyCapacityResult,
 } from './capacity.js'

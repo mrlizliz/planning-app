@@ -98,7 +98,8 @@ export const calendarExceptionSchema = z.object({
 export const absenceSchema = z.object({
   id: z.string().min(1),
   userId: z.string().min(1),
-  date: isoDateString,
+  startDate: isoDateString,
+  endDate: isoDateString,
   type: absenceTypeSchema,
   halfDay: z.boolean(),
   notes: z.string().nullable(),
@@ -111,7 +112,7 @@ export const recurringMeetingSchema = z.object({
   type: meetingTypeSchema,
   durationMinutes: z.number().int().min(1).max(480),
   frequency: meetingFrequencySchema,
-  dayOfWeek: z.number().int().min(0).max(6).nullable(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
 })
 
 export const workingCalendarSchema = z.object({

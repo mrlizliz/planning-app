@@ -49,12 +49,13 @@ export class JiraClient {
   }
 
   /**
-   * Cerca ticket Jira usando JQL.
+   * Cerca ticket Jira usando JQL con paginazione automatica.
    *
    * @param jql - Query JQL (es. "project = PROJ ORDER BY priority DESC")
-   * @param maxResults - Numero massimo di risultati (default: 100)
+   * @param maxResults - Numero massimo di risultati per pagina (default: 100)
+   * @param fetchAll - Se true, pagina automaticamente per ottenere tutti i risultati
    */
-  async searchIssues(jql: string, maxResults = 100): Promise<JiraSearchResult> {
+  async searchIssues(jql: string, maxResults = 100, fetchAll = true): Promise<JiraSearchResult> {
     const fields = [
       'summary',
       'description',
@@ -68,11 +69,28 @@ export class JiraClient {
       'fixVersions',
     ].join(',')
 
-    // Usa il nuovo endpoint /search/jql (il vecchio /search è stato rimosso, ritorna 410 Gone)
-    const url = `${this.baseUrl}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields}`
+    let allIssues: JiraIssue[] = []
+    let startAt = 0
+    let total = 0
 
-    const response = await this.fetchWithRetry(url)
-    return response as JiraSearchResult
+    do {
+      const url = `${this.baseUrl}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&startAt=${startAt}&fields=${fields}`
+      const response = await this.fetchWithRetry(url) as JiraSearchResult
+
+      allIssues = allIssues.concat(response.issues)
+      total = response.total
+      startAt += response.issues.length
+
+      // Se non serve paginazione completa o non ci sono più risultati, esci
+      if (!fetchAll || allIssues.length >= total || response.issues.length === 0) break
+    } while (true)
+
+    return {
+      issues: allIssues,
+      total,
+      maxResults,
+      startAt: 0,
+    }
   }
 
   /**

@@ -42,7 +42,7 @@ packages/shared/
 │   │   ├── index.ts            ← Re-export
 │   │   ├── calendar.ts         ← isWorkingDay, getWorkingDays, addWorkingDays, nextWorkingDay
 │   │   ├── capacity.ts         ← calculateDailyCapacity, applyAllocation, calculateDurationDays,
-│   │   │                          getMeetingMinutesForDay, isOverallocated
+│   │   │                          getMeetingMinutesForDay, isOverallocated, getUserDailyCapacity
 │   │   ├── scheduler.ts        ← autoSchedule, scheduleDayByDay (day-by-day con capacità reale)
 │   │   ├── jira-mapper.ts      ← mapJiraIssueToTicket, mapJiraIssuesToTickets, mapJiraLinksToDependencies
 │   │   ├── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
@@ -137,6 +137,8 @@ packages/backend/
 │   ├── index.ts              ← Server Fastify + buildApp() + hook auto-save
 │   ├── store/
 │   │   └── index.ts          ← In-memory store + persistenza JSON su disco
+│   ├── helpers/
+│   │   └── scheduler-input.ts ← buildSchedulerInput() — factory SchedulerInput dallo store
 │   ├── services/
 │   │   └── jira-client.ts    ← HTTP client per Jira REST API
 │   └── routes/
@@ -199,6 +201,13 @@ packages/frontend/
 ├── tsconfig.json
 └── vite.config.ts             ← Vite + proxy API verso backend
 ```
+
+### Funzioni di utilità condivise (Refactoring post-Release 5)
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `getUserDailyCapacity(user, date, absences, meetings)` | `capacity.ts` | Capacità netta di un utente in un giorno (compone getMeetingMinutesForDay + calculateDailyCapacity). Usata da scheduler, forecast, capacity route |
+| `buildSchedulerInput(planningStartDate?)` | `backend/helpers/scheduler-input.ts` | Factory che costruisce SchedulerInput dallo store. Elimina duplicazione in scheduler, scenarios, forecast, KPI e report |
 
 ## Decisioni architetturali
 

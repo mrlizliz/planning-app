@@ -66,7 +66,7 @@ describe('T2-I01: Capacity + Scheduling', () => {
       payload: {
         id: 'm1', userId: null, name: 'Standup lungo',
         type: 'standup', durationMinutes: 120,
-        frequency: 'daily', dayOfWeek: null,
+        frequency: 'daily', daysOfWeek: [],
       },
     })
 
@@ -92,16 +92,14 @@ describe('T2-I02: Assenza + Scheduling', () => {
     seedTicket('t1', 480)
     await seedAssignment('a1', 't1', 'user-1')
 
-    // Ferie lunedì, martedì, mercoledì
-    for (const [i, date] of ['2026-04-06', '2026-04-07', '2026-04-08'].entries()) {
-      await app.inject({
-        method: 'POST', url: '/api/absences',
-        payload: {
-          id: `abs-${i}`, userId: 'user-1', date,
-          type: 'vacation', halfDay: false, notes: null,
-        },
-      })
-    }
+    // Ferie lunedì, martedì, mercoledì — un unico range
+    await app.inject({
+      method: 'POST', url: '/api/absences',
+      payload: {
+        id: 'abs-0', userId: 'user-1', startDate: '2026-04-06', endDate: '2026-04-08',
+        type: 'vacation', halfDay: false, notes: null,
+      },
+    })
 
     const res = await app.inject({
       method: 'POST', url: '/api/scheduler/run',
@@ -127,7 +125,7 @@ describe('T2-I03: Capacity API', () => {
       method: 'POST', url: '/api/meetings',
       payload: {
         id: 'm1', userId: null, name: 'Daily', type: 'standup',
-        durationMinutes: 15, frequency: 'daily', dayOfWeek: null,
+        durationMinutes: 15, frequency: 'daily', daysOfWeek: [],
       },
     })
 
@@ -135,7 +133,7 @@ describe('T2-I03: Capacity API', () => {
     await app.inject({
       method: 'POST', url: '/api/absences',
       payload: {
-        id: 'abs-1', userId: 'user-1', date: '2026-04-07',
+        id: 'abs-1', userId: 'user-1', startDate: '2026-04-07', endDate: '2026-04-07',
         type: 'vacation', halfDay: false, notes: null,
       },
     })

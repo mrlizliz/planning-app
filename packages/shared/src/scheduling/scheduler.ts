@@ -6,15 +6,12 @@ import type { Ticket } from '../types/ticket.js'
 import type { Assignment } from '../types/assignment.js'
 import type { User } from '../types/user.js'
 import type { Dependency } from '../types/dependency.js'
-import type { Absence } from '../types/calendar.js'
-import type { RecurringMeeting } from '../types/calendar.js'
+import type { Absence, RecurringMeeting } from '../types/calendar.js'
 import { addWorkingDays, nextWorkingDay, isWorkingDay, type CalendarConfig } from './calendar.js'
 import {
-  calculateDailyCapacity,
   applyAllocation,
-  calculateDurationDays,
-  getMeetingMinutesForDay,
   isOverallocated,
+  getUserDailyCapacity,
 } from './capacity.js'
 import { topologicalSort, getPredecessors } from './dependency-graph.js'
 import { format, parseISO, getDay, addDays } from 'date-fns'
@@ -117,51 +114,6 @@ function getTicketPriority(ticket: Ticket): number {
   return JIRA_PRIORITY_MAP[ticket.jiraPriority] ?? 3
 }
 
-function sortTicketsByPriority(tickets: Ticket[]): Ticket[] {
-  return [...tickets].sort((a, b) => {
-    const pA = getTicketPriority(a)
-    const pB = getTicketPriority(b)
-    if (pA !== pB) return pA - pB
-    // Stabilità: ordine di creazione
-    return a.createdAt.localeCompare(b.createdAt)
-  })
-}
-
-/**
- * Calcola la capacità netta di un utente in un giorno specifico.
- */
-function getUserDailyCapacity(
-  user: User,
-  date: Date,
-  absences: Absence[],
-  meetings: RecurringMeeting[],
-): number {
-  const dateStr = format(date, 'yyyy-MM-dd')
-  const dayOfWeek = getDay(date)
-
-  // Controlla assenza
-  const absence = absences.find(
-    (a) => a.userId === user.id && a.date === dateStr,
-  )
-  const absent = absence ? !absence.halfDay : false
-  const halfDayAbsent = absence?.halfDay ?? false
-
-  // Calcola minuti meeting per quel giorno
-  const userMeetings = meetings.filter(
-    (m) => m.userId === null || m.userId === user.id,
-  )
-  const meetingMinutes = getMeetingMinutesForDay(dayOfWeek, userMeetings)
-
-  const result = calculateDailyCapacity({
-    dailyWorkingMinutes: user.dailyWorkingMinutes,
-    dailyOverheadMinutes: user.dailyOverheadMinutes,
-    meetingMinutes,
-    absent,
-    halfDayAbsent,
-  })
-
-  return result.netMinutes
-}
 
 /**
  * Trova la prossima data disponibile per un utente,
@@ -486,6 +438,8 @@ export function autoSchedule(input: SchedulerInput): SchedulerResult {
 
 /**
  * Rileva i giorni in cui un utente ha più minuti assegnati della sua capacità.
+ * Itera giorno per giorno tra start e end di ogni assignment, sommando
+ * capacity × allocation% per ogni assignment concorrente.
  */
 function detectOverallocations(
   scheduled: ScheduledAssignment[],
@@ -507,39 +461,45 @@ function detectOverallocations(
 
   for (const [userId, userAssignments] of byUser) {
     const user = userMap.get(userId)
-    if (!user) continue
+    if (!user || userAssignments.length < 2) continue
 
-    // Raccogli tutte le date in cui l'utente ha assignment
-    const dateSet = new Set<string>()
+    // Trova il range completo di date per questo utente
+    let minDate = userAssignments[0].startDate
+    let maxDate = userAssignments[0].endDate
     for (const a of userAssignments) {
-      // Per semplicità, controlliamo solo start e end
-      dateSet.add(a.startDate)
-      dateSet.add(a.endDate)
+      if (a.startDate < minDate) minDate = a.startDate
+      if (a.endDate > maxDate) maxDate = a.endDate
     }
 
-    for (const dateStr of dateSet) {
-      const date = parseISO(dateStr)
-      const capacity = getUserDailyCapacity(user, date, absences, meetings)
+    // Itera giorno per giorno
+    let current = parseISO(minDate)
+    const end = parseISO(maxDate)
 
-      // Conta quanti assignment coprono questa data
-      let assignedCount = 0
-      for (const a of userAssignments) {
-        if (a.startDate <= dateStr && a.endDate >= dateStr) {
-          assignedCount++
+    while (current <= end) {
+      const dateStr = format(current, 'yyyy-MM-dd')
+
+      if (isWorkingDay(current, calendar)) {
+        const capacity = getUserDailyCapacity(user, current, absences, meetings)
+
+        // Somma la quota effettiva di ogni assignment che copre questo giorno
+        let assignedMinutes = 0
+        for (const a of userAssignments) {
+          if (a.startDate <= dateStr && a.endDate >= dateStr) {
+            assignedMinutes += applyAllocation(capacity, 100) // Ogni assignment usa una quota proporzionale
+          }
+        }
+
+        if (assignedMinutes > 0 && isOverallocated(assignedMinutes, capacity)) {
+          overallocations.push({
+            userId,
+            date: dateStr,
+            assignedMinutes,
+            capacityMinutes: capacity,
+          })
         }
       }
 
-      // Stima conservativa: ogni assignment usa la sua quota di capacità
-      // (in questa versione semplificata, segnaliamo se ci sono >1 assignment full-day)
-      const assignedMinutes = capacity * assignedCount
-      if (assignedCount > 1 && isOverallocated(assignedMinutes, capacity)) {
-        overallocations.push({
-          userId,
-          date: dateStr,
-          assignedMinutes,
-          capacityMinutes: capacity,
-        })
-      }
+      current = addDays(current, 1)
     }
   }
 }

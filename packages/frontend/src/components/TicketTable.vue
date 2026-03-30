@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, Teleport } from 'vue'
-import type { Ticket } from '@planning/shared'
+import type { Ticket, Milestone, Release } from '@planning/shared'
 
 const props = defineProps<{
   tickets: Ticket[]
   loading: boolean
   jiraBaseUrl?: string
   fixVersionFilter?: string
+  milestones?: Milestone[]
+  releases?: Release[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'update-milestone', ticketId: string, milestoneId: string | null): void
+  (e: 'update-release', ticketId: string, releaseId: string | null): void
 }>()
 
 // ---- Sorting ----
@@ -135,6 +142,8 @@ function formatMinutes(min: number | null): string {
           <th class="sortable" @click="toggleSort('status')">Stato {{ sortIcon('status') }}</th>
           <th class="sortable" @click="toggleSort('phase')">Fase {{ sortIcon('phase') }}</th>
           <th class="sortable" @click="toggleSort('fixVersions')">Fix Version {{ sortIcon('fixVersions') }}</th>
+          <th v-if="milestones?.length">Milestone</th>
+          <th v-if="releases?.length">Release</th>
           <th class="sortable" @click="toggleSort('warnings')">Warning {{ sortIcon('warnings') }}</th>
         </tr>
       </thead>
@@ -177,6 +186,26 @@ function formatMinutes(min: number | null): string {
               <span v-for="v in ticket.fixVersions" :key="v" class="fv-badge">{{ v }}</span>
             </span>
             <span v-else class="text-muted">—</span>
+          </td>
+          <td v-if="milestones?.length" class="milestone-col">
+            <select
+              class="inline-select"
+              :value="ticket.milestoneId ?? ''"
+              @change="emit('update-milestone', ticket.id, ($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">—</option>
+              <option v-for="m in milestones" :key="m.id" :value="m.id">{{ m.name }}</option>
+            </select>
+          </td>
+          <td v-if="releases?.length" class="release-col">
+            <select
+              class="inline-select"
+              :value="ticket.releaseId ?? ''"
+              @change="emit('update-release', ticket.id, ($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">—</option>
+              <option v-for="r in releases" :key="r.id" :value="r.id">{{ r.name }}</option>
+            </select>
           </td>
           <td>
             <span
@@ -248,6 +277,9 @@ function formatMinutes(min: number | null): string {
 .assignee { color: #333; }
 .estimate-col { text-align: right; font-variant-numeric: tabular-nums; }
 .fix-version-col { white-space: nowrap; }
+.milestone-col, .release-col { white-space: nowrap; }
+.inline-select { padding: 0.2rem 0.3rem; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 0.75rem; background: white; outline: none; max-width: 120px; }
+.inline-select:focus { border-color: #4361ee; }
 .fv-badge { background: #ede9fe; color: #6d28d9; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.2rem; }
 .badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
 .badge-red { background: #fde8e8; color: #d00000; }

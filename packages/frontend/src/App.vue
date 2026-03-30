@@ -1,9 +1,33 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import Toast from 'primevue/toast'
+
+const isDark = ref(false)
+
+onMounted(() => {
+  isDark.value = localStorage.getItem('theme') === 'dark' ||
+    (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  applyTheme()
+})
+
+watch(isDark, () => {
+  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
+  applyTheme()
+})
+
+function applyTheme() {
+  document.documentElement.classList.toggle('dark', isDark.value)
+}
+
+function toggleDark() {
+  isDark.value = !isDark.value
+}
 </script>
 
 <template>
   <div class="app-layout">
+    <Toast position="top-right" />
     <header class="app-header">
       <div class="header-left">
         <h1>📋 Planning App</h1>
@@ -28,6 +52,9 @@ import { RouterView } from 'vue-router'
           <i class="pi pi-cog" /> Impostazioni
         </router-link>
       </nav>
+      <button class="theme-toggle" @click="toggleDark" :title="isDark ? 'Tema chiaro' : 'Tema scuro'">
+        <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
+      </button>
     </header>
     <main class="app-main">
       <RouterView />
@@ -104,6 +131,47 @@ body {
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
+}
+
+.theme-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-left: auto;
+  transition: all 0.15s;
+}
+.theme-toggle:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Dark mode */
+:root.dark body {
+  background: #121212;
+  color: #e0e0e0;
+}
+:root.dark .app-header {
+  background: #0d0d1a;
+}
+:root.dark .ticket-table-container,
+:root.dark .gantt-container,
+:root.dark .stats-bar {
+  background: #1e1e2e;
+  color: #e0e0e0;
+}
+:root.dark .ticket-table th {
+  background: #252538;
+  color: #aaa;
+}
+:root.dark .ticket-table td {
+  border-bottom-color: #2a2a3e;
+}
+:root.dark .ticket-table tr:hover td {
+  background: #2a2a3e;
 }
 </style>
 

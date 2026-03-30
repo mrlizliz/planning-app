@@ -1,0 +1,176 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Usa SQLite per sviluppo locale; cambia a "postgresql" per produzione
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---- User ----
+model User {
+  id                  String       @id
+  displayName         String
+  email               String       @unique
+  appRole             String       // pm | dev | qa
+  planningRoles       String       @default("[]") // JSON array
+  office              String?      // milano | venezia | roma
+  dailyWorkingMinutes Int          @default(480)
+  dailyOverheadMinutes Int         @default(0)
+  active              Boolean      @default(true)
+  assignments         Assignment[]
+  absences            Absence[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+}
+
+// ---- Ticket ----
+model Ticket {
+  id                String       @id
+  jiraKey           String       @unique
+  summary           String
+  description       String?
+  estimateMinutes   Int?
+  jiraPriority      String       @default("medium") // highest|high|medium|low|lowest
+  priorityOverride  Int?
+  status            String       @default("backlog") // backlog|planned|in_progress|done
+  phase             String       @default("dev")     // dev|qa
+  jiraAssigneeEmail String?
+  jiraAssigneeName  String?
+  parentKey         String?
+  fixVersions       String       @default("[]") // JSON array
+  milestoneId       String?
+  releaseId         String?
+  locked            Boolean      @default(false)
+  warnings          String       @default("[]") // JSON array
+  lastSyncedAt      DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  assignments       Assignment[]
+  milestone         Milestone?   @relation(fields: [milestoneId], references: [id])
+  release           Release?     @relation(fields: [releaseId], references: [id])
+}
+
+// ---- Assignment ----
+model Assignment {
+  id                String   @id
+  ticketId          String
+  userId            String
+  role              String   // dev | qa
+  allocationPercent Int      @default(100)
+  startDate         String?  // ISO YYYY-MM-DD
+  endDate           String?  // ISO YYYY-MM-DD
+  durationDays      Int?
+  locked            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  ticket            Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id])
+}
+
+// ---- Holiday ----
+model Holiday {
+  id        String  @id
+  date      String  // ISO YYYY-MM-DD
+  name      String
+  recurring Boolean @default(false)
+  office    String? // null = nazionale
+}
+
+// ---- CalendarException ----
+model CalendarException {
+  id          String @id
+  date        String // ISO YYYY-MM-DD
+  description String
+}
+
+// ---- Absence ----
+model Absence {
+  id        String   @id
+  userId    String
+  startDate String   // ISO YYYY-MM-DD
+  endDate   String   // ISO YYYY-MM-DD
+  type      String   // vacation|sick|permit|training|other
+  halfDay   Boolean  @default(false)
+  notes     String?
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// ---- RecurringMeeting ----
+model RecurringMeeting {
+  id              String @id
+  userId          String? // null = team-wide
+  name            String
+  type            String  // standup|refinement|sprint_planning|retrospective|one_on_one|custom
+  durationMinutes Int
+  frequency       String  // daily|weekly|biweekly|monthly
+  daysOfWeek      String  @default("[]") // JSON array di numeri
+}
+
+// ---- Milestone ----
+model Milestone {
+  id          String   @id
+  name        String
+  description String?
+  targetDate  String   // ISO YYYY-MM-DD
+  status      String   @default("on_track") // on_track|at_risk|delayed
+  tickets     Ticket[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ---- Release ----
+model Release {
+  id           String   @id
+  name         String
+  description  String?
+  targetDate   String   // ISO YYYY-MM-DD
+  forecastDate String?  // calcolato
+  tickets      Ticket[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ---- Dependency ----
+model Dependency {
+  id              String   @id
+  fromTicketId    String
+  toTicketId      String
+  type            String   // finish_to_start|parallel|blocking
+  importedFromJira Boolean @default(false)
+  createdAt       DateTime @default(now())
+}
+
+// ---- DeploymentDay ----
+model DeploymentDay {
+  id          String  @id
+  environment String  // dev|prod
+  dayOfWeek   Int
+  active      Boolean @default(true)
+}
+
+// ---- DeploymentWindow ----
+model DeploymentWindow {
+  id          String  @id
+  environment String  // dev|prod
+  date        String  // ISO YYYY-MM-DD
+  allowed     Boolean
+  notes       String?
+}
+
+// ---- Scenario ----
+model Scenario {
+  id          String   @id
+  name        String
+  description String?
+  isCurrent   Boolean  @default(false)
+  snapshot    String   // JSON ScenarioSnapshot
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

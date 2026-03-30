@@ -2,21 +2,20 @@
 // In-Memory Store — Con persistenza su file JSON
 // ============================================================
 
-import type { Ticket } from '@planning/shared'
-import type { Assignment } from '@planning/shared'
-import type { User } from '@planning/shared'
 import type {
-  Holiday,
-  CalendarException,
+  Ticket,
+  Assignment,
+  User,
   Absence,
   RecurringMeeting,
   WorkingCalendar,
+  Milestone,
+  Release,
+  Dependency,
+  Scenario,
+  DeploymentDay,
+  DeploymentWindow,
 } from '@planning/shared'
-import type { Milestone } from '@planning/shared'
-import type { Release } from '@planning/shared'
-import type { Dependency } from '@planning/shared'
-import type { Scenario } from '@planning/shared'
-import type { DeploymentDay, DeploymentWindow } from '@planning/shared'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 

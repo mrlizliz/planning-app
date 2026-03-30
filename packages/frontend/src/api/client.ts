@@ -38,8 +38,12 @@ export const ticketsApi = {
     request<Ticket>(`/tickets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) =>
     request<{ ok: boolean }>(`/tickets/${id}`, { method: 'DELETE' }),
+  bulkUpdate: (ticketIds: string[], changes: Partial<Ticket>) =>
+    request<{ ok: boolean; updatedCount: number; updatedIds: string[] }>(
+      '/tickets/bulk', { method: 'PUT', body: JSON.stringify({ ticketIds, changes }) },
+    ),
   syncJira: (config: { baseUrl?: string; email?: string; apiToken?: string; jql: string }) =>
-    request<{ imported: number; total: number; tickets: Array<{ id: string; jiraKey: string; warnings: string[] }> }>(
+    request<{ imported: number; importedDependencies?: number; total: number; tickets: Array<{ id: string; jiraKey: string; warnings: string[] }> }>(
       '/tickets/sync-jira',
       { method: 'POST', body: JSON.stringify(config) },
     ),
@@ -220,8 +224,30 @@ export const scenariosApi = {
     request<{ totalFields: number; changedFields: number; diffs: Array<{ ticketId: string; assignmentId: string; field: string; currentValue: unknown; scenarioValue: unknown; changed: boolean }> }>(
       `/scenarios/${id}/compare`,
     ),
+  schedule: (id: string) =>
+    request<{ scheduledCount: number; errorsCount: number; scenario: Scenario }>(
+      `/scenarios/${id}/schedule`, { method: 'POST' },
+    ),
   delete: (id: string) =>
     request<{ ok: boolean }>(`/scenarios/${id}`, { method: 'DELETE' }),
+}
+
+// ---- Auth ----
+
+export const authApi = {
+  login: (email: string, password?: string) =>
+    request<{ token: string; user: { id: string; displayName: string; email: string; role: string } }>(
+      '/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) },
+    ),
+  me: () =>
+    request<{ id: string; email: string; role: string }>('/auth/me'),
+}
+
+// ---- Alerts (on-demand) ----
+
+export const alertsApi = {
+  /** Esegue scheduling e restituisce gli alert aggiornati */
+  fetch: () => schedulerApi.run().then((r) => r.alerts ?? []),
 }
 
 // ---- Forecast ----

@@ -9,9 +9,11 @@
     "test": "turbo test",
     "test:shared": "pnpm --filter @planning/shared test",
     "test:backend": "pnpm --filter @planning/backend test",
+    "test:e2e": "playwright test",
     "lint": "turbo lint"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

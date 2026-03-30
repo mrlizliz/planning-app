@@ -5,22 +5,25 @@ Applicazione di **capacity planning** per Project Manager che integra ticket Jir
 ## Funzionalità chiave
 
 - 📥 Import ticket da Jira con stime in ore
-- 📅 Calendario lavorativo (weekend, festivi, assenze)
-- ⚡ Traduzione effort → date realistiche
+- 📅 Calendario lavorativo (weekend, festivi, assenze, meeting)
+- ⚡ Traduzione effort → date realistiche (scheduling day-by-day)
 - 👥 Allocazione % per risorsa (100%, 50%, 25%…)
 - 🔒 Override manuale del PM con flag `locked`
-- 🚨 Rilevamento sovrallocazioni
-- 📊 Milestone, release e finestre di deploy
+- 🚨 Rilevamento sovrallocazioni e alert intelligenti
+- 📊 Milestone, release e finestre di deploy (DEV/PROD)
+- 🔗 Dipendenze tra ticket con ordinamento topologico
+- 🔮 Scenari what-if con confronto side-by-side
+- 📈 KPI, capacity forecast settimanale, report CSV
 
 ## Stack tecnico
 
 | Layer | Tecnologia |
 |-------|-----------|
 | **Frontend** | Vue 3 + TypeScript + Vite + PrimeVue + Pinia |
-| **Backend** | Fastify + TypeScript + Prisma + PostgreSQL |
+| **Backend** | Fastify + TypeScript (persistenza JSON su file, Prisma + PostgreSQL previsti) |
 | **Shared** | Monorepo pnpm — tipi, scheduling, validatori Zod |
-| **Test** | Vitest + Supertest + Playwright |
-| **Infra** | Docker Compose (dev), GitHub Actions (CI/CD) |
+| **Test** | Vitest (unit + integration) — 251 test |
+| **Infra** | pnpm workspaces + Turborepo |
 
 ## Struttura progetto
 
@@ -28,9 +31,10 @@ Applicazione di **capacity planning** per Project Manager che integra ticket Jir
 planning-app/
 ├── packages/
 │   ├── shared/        ← Tipi TS, regole scheduling, validatori Zod
-│   ├── backend/       ← Fastify + Prisma + PostgreSQL
+│   ├── backend/       ← Fastify + persistenza JSON (pre-database)
 │   └── frontend/      ← Vue 3 + Vite + PrimeVue
 ├── docs/              ← Documentazione architetturale
+├── scripts/           ← Script di seed e configurazione
 ├── package.json
 ├── pnpm-workspace.yaml
 └── turbo.json
@@ -51,9 +55,9 @@ npm install -g pnpm@9
 pnpm install
 
 # Esegui i test
-pnpm test:shared
+pnpm test
 
-# Dev mode
+# Dev mode (backend + frontend)
 pnpm dev
 ```
 
@@ -67,13 +71,18 @@ pnpm dev
 | [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md) | Entità, relazioni, formule |
 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | Convenzioni di codice |
 | [docs/RELEASE_LOG.md](docs/RELEASE_LOG.md) | Storico release completate |
+| [docs/NEXT_FEATURES.md](docs/NEXT_FEATURES.md) | Checklist feature future |
 
-## Release attuali
+## Release completate
 
 - ✅ **Release 0** — Discovery & Foundation (domain model, scheduling rules, validatori, test)
-- ⏳ **Release 1** — MVP Planning Core (prossima)
+- ✅ **Release 1** — MVP Planning Core (backend Fastify, frontend Vue 3, scheduler, Jira import)
+- ✅ **Release 2** — Real Capacity & Microsoft Calendar Integration
+- ✅ **Release 3** — Milestone, Release & Deployment Calendar
+- ✅ **Release 4** — Dependencies, Priorities & Advanced Scheduling
+- ✅ **Release 5** — Scenario Planning, Forecast & Reporting
+- ✅ **Hotfix** — Assenze multi-giorno + meeting multi-giorno
 
 ## Licenza
 
 Progetto privato.
-

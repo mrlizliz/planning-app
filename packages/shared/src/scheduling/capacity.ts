@@ -2,7 +2,9 @@
 // Capacity — Calcolo capacità netta e durata ticket
 // ============================================================
 
-import type { RecurringMeeting } from '../types/calendar.js'
+import type { User } from '../types/user.js'
+import type { Absence, RecurringMeeting } from '../types/calendar.js'
+import { format, getDay } from 'date-fns'
 
 /** Input per il calcolo della capacità netta giornaliera */
 export interface DailyCapacityInput {
@@ -144,14 +146,13 @@ export function getMeetingMinutesForDay(
         }
         break
       case 'weekly':
-        if (meeting.dayOfWeek === dayOfWeek) {
+        if (meeting.daysOfWeek.includes(dayOfWeek)) {
           total += meeting.durationMinutes
         }
         break
       case 'biweekly':
         // Per semplicità: metà dell'impatto settimanale (media)
-        // In futuro si può calcolare sulla settimana specifica
-        if (meeting.dayOfWeek === dayOfWeek) {
+        if (meeting.daysOfWeek.includes(dayOfWeek)) {
           total += Math.floor(meeting.durationMinutes / 2)
         }
         break
@@ -178,4 +179,39 @@ export function isOverallocated(
   return assignedMinutes > netCapacityMinutes
 }
 
+/**
+ * Calcola la capacità netta di un utente in un giorno specifico,
+ * tenendo conto di assenze, meeting e overhead.
+ *
+ * Funzione di convenienza che compone getMeetingMinutesForDay + calculateDailyCapacity.
+ */
+export function getUserDailyCapacity(
+  user: User,
+  date: Date,
+  absences: Absence[],
+  meetings: RecurringMeeting[],
+): number {
+  const dateStr = format(date, 'yyyy-MM-dd')
+  const dayOfWeek = getDay(date)
 
+  const absence = absences.find(
+    (a) => a.userId === user.id && a.startDate <= dateStr && a.endDate >= dateStr,
+  )
+  const absent = absence ? !absence.halfDay : false
+  const halfDayAbsent = absence?.halfDay ?? false
+
+  const userMeetings = meetings.filter(
+    (m) => m.userId === null || m.userId === user.id,
+  )
+  const meetingMinutes = getMeetingMinutesForDay(dayOfWeek, userMeetings)
+
+  const result = calculateDailyCapacity({
+    dailyWorkingMinutes: user.dailyWorkingMinutes,
+    dailyOverheadMinutes: user.dailyOverheadMinutes,
+    meetingMinutes,
+    absent,
+    halfDayAbsent,
+  })
+
+  return result.netMinutes
+}

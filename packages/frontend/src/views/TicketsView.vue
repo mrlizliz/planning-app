@@ -1,14 +1,28 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useTicketsStore } from '../stores/tickets.js'
-import { jiraApi } from '../api/client.js'
+import { usePlanningStore } from '../stores/planning.js'
+import { useUsersStore } from '../stores/users.js'
+import { useNotifications } from '../composables/useNotifications.js'
+import { jiraApi, milestonesApi, releasesApi } from '../api/client.js'
 import TicketTable from '../components/TicketTable.vue'
 import JiraSyncDialog from '../components/JiraSyncDialog.vue'
+import type { Milestone, Release } from '@planning/shared'
 
 const ticketsStore = useTicketsStore()
+const planningStore = usePlanningStore()
+const usersStore = useUsersStore()
+const { showSuccess, handleApiError } = useNotifications()
+
 const showSyncDialog = ref(false)
 const jiraBaseUrl = ref('')
 const fixVersionFilter = ref('')
+const statusFilter = ref('')
+const priorityFilter = ref('')
+const searchQuery = ref('')
+
+const milestones = ref<Milestone[]>([])
+const releases = ref<Release[]>([])
 
 // Calcola lista unica di fix versions
 const allFixVersions = computed(() => {
@@ -21,19 +35,61 @@ const allFixVersions = computed(() => {
   return [...set].sort()
 })
 
-// Ticket filtrati
+// Ticket filtrati con tutti i filtri
 const filteredTickets = computed(() => {
-  if (!fixVersionFilter.value) return ticketsStore.tickets
-  return ticketsStore.tickets.filter((t) =>
-    (t.fixVersions ?? []).includes(fixVersionFilter.value),
-  )
+  let result = ticketsStore.tickets
+
+  if (fixVersionFilter.value) {
+    result = result.filter((t) => (t.fixVersions ?? []).includes(fixVersionFilter.value))
+  }
+  if (statusFilter.value) {
+    result = result.filter((t) => t.status === statusFilter.value)
+  }
+  if (priorityFilter.value) {
+    result = result.filter((t) => t.jiraPriority === priorityFilter.value)
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter((t) =>
+      t.jiraKey.toLowerCase().includes(q) ||
+      t.summary.toLowerCase().includes(q) ||
+      (t.jiraAssigneeName ?? '').toLowerCase().includes(q),
+    )
+  }
+  return result
 })
 
+async function updateTicketMilestone(ticketId: string, milestoneId: string | null) {
+  try {
+    await ticketsStore.updateTicket(ticketId, { milestoneId })
+    showSuccess('Milestone aggiornata')
+  } catch (e) {
+    handleApiError(e, 'Aggiornamento milestone')
+  }
+}
+
+async function updateTicketRelease(ticketId: string, releaseId: string | null) {
+  try {
+    await ticketsStore.updateTicket(ticketId, { releaseId })
+    showSuccess('Release aggiornata')
+  } catch (e) {
+    handleApiError(e, 'Aggiornamento release')
+  }
+}
+
 onMounted(async () => {
-  ticketsStore.fetchTickets()
+  await Promise.all([
+    ticketsStore.fetchTickets(),
+    planningStore.fetchAssignments(),
+    usersStore.fetchUsers(),
+  ])
   try {
     const config = await jiraApi.getConfig()
     if (config.baseUrl) jiraBaseUrl.value = config.baseUrl
+  } catch { /* ignore */ }
+  try {
+    milestones.value = await milestonesApi.list()
+    releases.value = await releasesApi.list()
   } catch { /* ignore */ }
 })
 </script>
@@ -65,13 +121,34 @@ onMounted(async () => {
         <span class="stat-value">{{ ticketsStore.plannedTickets.length }}</span>
         <span class="stat-label">Pianificati</span>
       </div>
-      <div class="stat filter-stat" v-if="allFixVersions.length > 0">
-        <label class="filter-label">Fix Version:</label>
-        <select v-model="fixVersionFilter" class="filter-select">
-          <option value="">Tutte ({{ ticketsStore.ticketCount }})</option>
-          <option v-for="v in allFixVersions" :key="v" :value="v">{{ v }}</option>
-        </select>
-      </div>
+    </div>
+
+    <div class="filters-bar">
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="filter-input"
+        placeholder="🔍 Cerca per key, titolo o assignee..."
+      />
+      <select v-model="statusFilter" class="filter-select">
+        <option value="">Tutti gli stati</option>
+        <option value="backlog">Backlog</option>
+        <option value="planned">Pianificato</option>
+        <option value="in_progress">In Corso</option>
+        <option value="done">Completato</option>
+      </select>
+      <select v-model="priorityFilter" class="filter-select">
+        <option value="">Tutte le priorità</option>
+        <option value="highest">Highest</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+        <option value="lowest">Lowest</option>
+      </select>
+      <select v-if="allFixVersions.length > 0" v-model="fixVersionFilter" class="filter-select">
+        <option value="">Tutte le version</option>
+        <option v-for="v in allFixVersions" :key="v" :value="v">{{ v }}</option>
+      </select>
     </div>
 
     <TicketTable
@@ -79,6 +156,10 @@ onMounted(async () => {
       :loading="ticketsStore.loading"
       :jira-base-url="jiraBaseUrl"
       :fix-version-filter="fixVersionFilter"
+      :milestones="milestones"
+      :releases="releases"
+      @update-milestone="updateTicketMilestone"
+      @update-release="updateTicketRelease"
     />
 
     <JiraSyncDialog
@@ -134,12 +215,22 @@ onMounted(async () => {
 }
 .stat-value { font-size: 1.5rem; font-weight: 700; color: #4361ee; }
 .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
-.filter-stat {
-  margin-left: auto;
-  flex-direction: row;
+.filters-bar {
+  display: flex;
   gap: 0.5rem;
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
 }
-.filter-label { font-size: 0.8rem; font-weight: 600; color: #555; white-space: nowrap; }
+.filter-input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  outline: none;
+  flex: 1;
+  min-width: 200px;
+}
+.filter-input:focus { border-color: #4361ee; }
 .filter-select {
   padding: 0.35rem 0.5rem;
   border: 1px solid #ddd;

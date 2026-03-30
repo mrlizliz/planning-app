@@ -54,9 +54,13 @@ export async function releaseRoutes(app: FastifyInstance) {
     const store = getStore()
     const existing = store.milestones.get(id)
     if (!existing) return reply.status(404).send({ error: 'Milestone non trovata' })
-    const updated = { ...existing, ...(request.body as object), id, updatedAt: new Date().toISOString() }
-    store.milestones.set(id, updated)
-    return updated
+    const merged = { ...existing, ...(request.body as object), id }
+    const parsed = milestoneSchema.safeParse(merged)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Dati non validi', details: parsed.error.issues })
+    }
+    store.milestones.set(id, parsed.data)
+    return parsed.data
   })
 
   app.delete('/api/milestones/:id', async (request, reply) => {
@@ -102,9 +106,13 @@ export async function releaseRoutes(app: FastifyInstance) {
     const store = getStore()
     const existing = store.releases.get(id)
     if (!existing) return reply.status(404).send({ error: 'Release non trovata' })
-    const updated = { ...existing, ...(request.body as object), id, updatedAt: new Date().toISOString() }
-    store.releases.set(id, updated)
-    return updated
+    const merged = { ...existing, ...(request.body as object), id }
+    const parsed = releaseSchema.safeParse(merged)
+    if (!parsed.success) {
+      return reply.status(400).send({ error: 'Dati non validi', details: parsed.error.issues })
+    }
+    store.releases.set(id, parsed.data)
+    return parsed.data
   })
 
   app.delete('/api/releases/:id', async (request, reply) => {

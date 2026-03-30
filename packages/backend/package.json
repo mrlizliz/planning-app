@@ -8,17 +8,26 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.0",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/sensible": "^6.0.0",
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "@planning/shared": "workspace:*",
+    "@prisma/client": "5",
     "crypto-randomuuid": "^1.0.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "fastify": "^5.2.0",
+    "fastify-plugin": "^5.1.0",
     "pino": "^9.6.0",
+    "prisma": "5",
     "zod": "^3.24.0"
   },
   "devDependencies": {

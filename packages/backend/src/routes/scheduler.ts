@@ -4,8 +4,8 @@
 
 import type { FastifyInstance } from 'fastify'
 import { getStore } from '../store/index.js'
-import { autoSchedule, generateAlerts, type SchedulerInput } from '@planning/shared'
-import { format } from 'date-fns'
+import { autoSchedule, generateAlerts } from '@planning/shared'
+import { buildSchedulerInput } from '../helpers/scheduler-input.js'
 
 export async function schedulerRoutes(app: FastifyInstance) {
   // POST /api/scheduler/run — Esegue auto-scheduling
@@ -13,28 +13,7 @@ export async function schedulerRoutes(app: FastifyInstance) {
     const store = getStore()
     const body = request.body as { planningStartDate?: string } | undefined
 
-    const planningStartDate = body?.planningStartDate ?? format(new Date(), 'yyyy-MM-dd')
-
-    const input: SchedulerInput = {
-      tickets: Array.from(store.tickets.values()),
-      assignments: Array.from(store.assignments.values()),
-      users: Array.from(store.users.values()),
-      calendar: {
-        holidays: store.calendar.holidays
-          .filter((h) => h.office === null || h.office === undefined)
-          .map((h) => h.date),
-        exceptions: store.calendar.exceptions.map((e) => e.date),
-      },
-      holidays: store.calendar.holidays.map((h) => ({
-        date: h.date,
-        office: h.office ?? null,
-      })),
-      absences: Array.from(store.absences.values()),
-      meetings: Array.from(store.meetings.values()),
-      dependencies: Array.from(store.dependencies.values()),
-      planningStartDate,
-    }
-
+    const input = buildSchedulerInput(body?.planningStartDate)
     const result = autoSchedule(input)
 
     // Aggiorna gli assignment con le date calcolate

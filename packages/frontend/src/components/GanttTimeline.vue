@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Ticket, Assignment, User } from '@planning/shared'
 import { parseISO, format, differenceInCalendarDays, addDays, startOfWeek, endOfWeek } from 'date-fns'
 import { it } from 'date-fns/locale'
@@ -9,6 +9,65 @@ const props = defineProps<{
   assignments: Assignment[]
   users: User[]
 }>()
+
+const emit = defineEmits<{
+  (e: 'assignment-moved', payload: { assignmentId: string; newStartDate: string; daysDelta: number }): void
+}>()
+
+// --- Drag & Drop state ---
+const dragState = ref<{
+  assignmentId: string
+  startX: number
+  originalStartOffset: number
+  barElement: HTMLElement | null
+} | null>(null)
+
+function onDragStart(event: DragEvent, assignmentId: string, startOffset: number) {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', assignmentId)
+  dragState.value = {
+    assignmentId,
+    startX: event.clientX,
+    originalStartOffset: startOffset,
+    barElement: event.target as HTMLElement,
+  }
+}
+
+function onDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(event: DragEvent, dayIndex: number) {
+  event.preventDefault()
+  if (!dragState.value) return
+
+  const assignment = props.assignments.find((a) => a.id === dragState.value!.assignmentId)
+  if (!assignment || assignment.locked) {
+    dragState.value = null
+    return
+  }
+
+  const daysDelta = dayIndex - dragState.value.originalStartOffset
+  if (daysDelta === 0) {
+    dragState.value = null
+    return
+  }
+
+  const newStartDate = format(addDays(timeRange.value.start, dayIndex), 'yyyy-MM-dd')
+  emit('assignment-moved', {
+    assignmentId: dragState.value.assignmentId,
+    newStartDate,
+    daysDelta,
+  })
+
+  dragState.value = null
+}
+
+function onDragEnd() {
+  dragState.value = null
+}
 
 // Calcola la finestra temporale visualizzata
 const scheduledAssignments = computed(() =>
@@ -150,16 +209,22 @@ function getPriorityColor(priority: string): string {
               :key="i"
               class="day-cell"
               :class="{ weekend: day.isWeekend, today: day.isToday }"
+              @dragover="onDragOver"
+              @drop="onDrop($event, i)"
             >
               <div
                 v-for="a in row.assignments.filter((a) => a.startOffset === i)"
                 :key="a.id"
                 class="gantt-bar"
+                :class="{ 'bar-draggable': !a.locked, 'bar-dragging': dragState?.assignmentId === a.id }"
+                :draggable="!a.locked"
                 :style="{
                   width: `calc(${a.duration * 100}% + ${(a.duration - 1) * 1}px)`,
                   background: getPriorityColor(a.ticket?.jiraPriority ?? 'medium'),
                 }"
-                :title="`${a.ticket?.jiraKey} — ${a.ticket?.summary}\n${a.startDate} → ${a.endDate} (${a.durationDays}gg)`"
+                :title="`${a.ticket?.jiraKey} — ${a.ticket?.summary}\n${a.startDate} → ${a.endDate} (${a.durationDays}gg)\n${a.locked ? '🔒 Bloccato' : '↔ Trascina per spostare'}`"
+                @dragstart="onDragStart($event, a.id, a.startOffset)"
+                @dragend="onDragEnd"
               >
                 <span class="bar-label">{{ a.ticket?.jiraKey }}</span>
                 <i v-if="a.locked" class="pi pi-lock bar-icon" />
@@ -222,6 +287,9 @@ function getPriorityColor(priority: string): string {
 }
 .bar-label { font-weight: 600; }
 .bar-icon { font-size: 0.6rem; }
+.bar-draggable { cursor: grab; }
+.bar-draggable:active { cursor: grabbing; }
+.bar-dragging { opacity: 0.5; }
 .empty-row { text-align: center; padding: 2rem; color: #999; }
 </style>
 

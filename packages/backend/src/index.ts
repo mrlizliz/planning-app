@@ -11,6 +11,8 @@ dotenvConfig({ path: resolve(process.cwd(), '..', '..', '.env') })
 
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import swagger from '@fastify/swagger'
+import swaggerUi from '@fastify/swagger-ui'
 import { ticketRoutes } from './routes/tickets.js'
 import { userRoutes } from './routes/users.js'
 import { assignmentRoutes } from './routes/assignments.js'
@@ -21,6 +23,7 @@ import { releaseRoutes } from './routes/releases.js'
 import { dependencyRoutes } from './routes/dependencies.js'
 import { scenarioRoutes } from './routes/scenarios.js'
 import { saveToDisk } from './store/index.js'
+import authPlugin from './plugins/auth.js'
 
 export async function buildApp(options: { logger?: boolean; persist?: boolean } = {}) {
   const app = Fastify({
@@ -30,6 +33,37 @@ export async function buildApp(options: { logger?: boolean; persist?: boolean } 
   // Plugins
   await app.register(cors, {
     origin: true,
+  })
+
+  // Auth (JWT) — registra route /api/auth/login e /api/auth/me
+  await app.register(authPlugin)
+
+  // OpenAPI / Swagger
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'Planning App API',
+        description: 'API per capacity planning — Jira integration, scheduling, reporting',
+        version: '0.1.0',
+      },
+      servers: [{ url: 'http://localhost:3001' }],
+      tags: [
+        { name: 'tickets', description: 'CRUD ticket + Jira sync' },
+        { name: 'users', description: 'CRUD utenti' },
+        { name: 'assignments', description: 'CRUD assignment' },
+        { name: 'calendar', description: 'Festivi, eccezioni, assenze, meeting' },
+        { name: 'scheduler', description: 'Auto-scheduling engine' },
+        { name: 'capacity', description: 'Breakdown capacità giornaliera' },
+        { name: 'releases', description: 'Milestone, release, deploy' },
+        { name: 'dependencies', description: 'Dipendenze tra ticket' },
+        { name: 'scenarios', description: 'Scenari what-if, forecast, KPI, report' },
+        { name: 'auth', description: 'Autenticazione JWT' },
+      ],
+    },
+  })
+  await app.register(swaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: { docExpansion: 'list', deepLinking: true },
   })
 
   // Auto-save: dopo ogni risposta di scrittura riuscita, salva lo store su disco

@@ -5,12 +5,11 @@
 import type { User } from '../types/user.js'
 import type { Assignment } from '../types/assignment.js'
 import type { Ticket } from '../types/ticket.js'
-import type { Absence } from '../types/calendar.js'
-import type { RecurringMeeting } from '../types/calendar.js'
+import type { Absence, RecurringMeeting } from '../types/calendar.js'
 import type { ScheduledAssignment, OverallocationAlert } from './scheduler.js'
 import { isWorkingDay, type CalendarConfig } from './calendar.js'
-import { calculateDailyCapacity, applyAllocation, getMeetingMinutesForDay } from './capacity.js'
-import { addDays, format, parseISO, getDay, startOfWeek, endOfWeek } from 'date-fns'
+import { getUserDailyCapacity } from './capacity.js'
+import { addDays, format, parseISO, startOfWeek, endOfWeek } from 'date-fns'
 
 // ---- Types ----
 
@@ -73,39 +72,6 @@ export interface ForecastInput {
   toDate: string
 }
 
-/**
- * Calcola la capacità netta di un utente in un giorno specifico.
- */
-function getUserDayCapacity(
-  user: User,
-  date: Date,
-  absences: Absence[],
-  meetings: RecurringMeeting[],
-): number {
-  const dateStr = format(date, 'yyyy-MM-dd')
-  const dayOfWeek = getDay(date)
-
-  const absence = absences.find(
-    (a) => a.userId === user.id && a.date === dateStr,
-  )
-  const absent = absence ? !absence.halfDay : false
-  const halfDayAbsent = absence?.halfDay ?? false
-
-  const userMeetings = meetings.filter(
-    (m) => m.userId === null || m.userId === user.id,
-  )
-  const meetingMinutes = getMeetingMinutesForDay(dayOfWeek, userMeetings)
-
-  const result = calculateDailyCapacity({
-    dailyWorkingMinutes: user.dailyWorkingMinutes,
-    dailyOverheadMinutes: user.dailyOverheadMinutes,
-    meetingMinutes,
-    absent,
-    halfDayAbsent,
-  })
-
-  return result.netMinutes
-}
 
 /**
  * Calcola il forecast di capacità settimanale per il team.
@@ -140,7 +106,7 @@ export function calculateWeeklyForecast(input: ForecastInput): WeeklyCapacityFor
       // Capacità disponibile: somma capacità netta di tutti gli utenti attivi
       for (const user of users) {
         if (!user.active) continue
-        availableMinutes += getUserDayCapacity(user, day, absences, meetings)
+        availableMinutes += getUserDailyCapacity(user, day, absences, meetings)
       }
 
       // Minuti pianificati: assignment che coprono questo giorno
@@ -151,7 +117,7 @@ export function calculateWeeklyForecast(input: ForecastInput): WeeklyCapacityFor
           const ticket = input.assignments.find((a) => a.id === sa.assignmentId)
           if (ticket) {
             const dailyPlanned = ticket.allocationPercent
-              ? Math.floor((getUserDayCapacity(
+              ? Math.floor((getUserDailyCapacity(
                   users.find((u) => u.id === sa.userId) ?? users[0],
                   day, absences, meetings,
                 ) * ticket.allocationPercent) / 100)
@@ -196,7 +162,7 @@ export interface KPIInput {
  * Calcola i KPI di planning del team.
  */
 export function calculateKPIs(input: KPIInput): PlanningKPIs {
-  const { tickets, assignments, scheduledAssignments, overallocations, totalAvailableMinutes } = input
+  const { tickets, scheduledAssignments, overallocations, totalAvailableMinutes } = input
 
   // Effort totale pianificato (dai ticket schedulati)
   const scheduledTicketIds = new Set(scheduledAssignments.map((s) => s.ticketId))

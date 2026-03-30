@@ -3,13 +3,16 @@ import { onMounted, computed } from 'vue'
 import { useTicketsStore } from '../stores/tickets.js'
 import { usePlanningStore } from '../stores/planning.js'
 import { useUsersStore } from '../stores/users.js'
+import { useNotifications } from '../composables/useNotifications.js'
 import GanttTimeline from '../components/GanttTimeline.vue'
 import OverallocationBanner from '../components/OverallocationBanner.vue'
 import AlertsBanner from '../components/AlertsBanner.vue'
+import { addDays, format, parseISO } from 'date-fns'
 
 const ticketsStore = useTicketsStore()
 const planningStore = usePlanningStore()
 const usersStore = useUsersStore()
+const { showSuccess, showError, handleApiError } = useNotifications()
 
 onMounted(async () => {
   await Promise.all([
@@ -24,10 +27,32 @@ const hasData = computed(() => ticketsStore.tickets.length > 0)
 
 async function handleRunScheduler() {
   try {
-    await planningStore.runScheduler()
+    const result = await planningStore.runScheduler()
     await ticketsStore.fetchTickets()
+    showSuccess('Scheduling completato', `${result.scheduledCount} assignment schedulati`)
   } catch (e) {
-    // L'errore è già nello store
+    handleApiError(e, 'Auto-Schedule')
+  }
+}
+
+async function handleAssignmentMoved(payload: { assignmentId: string; newStartDate: string; daysDelta: number }) {
+  try {
+    const assignment = planningStore.assignments.find((a) => a.id === payload.assignmentId)
+    if (!assignment) return
+
+    // Calcola nuova endDate spostando dello stesso delta
+    const newEndDate = assignment.endDate
+      ? format(addDays(parseISO(assignment.endDate), payload.daysDelta), 'yyyy-MM-dd')
+      : null
+
+    await planningStore.updateAssignment(payload.assignmentId, {
+      startDate: payload.newStartDate,
+      endDate: newEndDate,
+      locked: true, // Lock automatico dopo drag manuale
+    })
+    showSuccess('Assignment spostato', `Nuova data: ${payload.newStartDate}`)
+  } catch (e) {
+    handleApiError(e, 'Spostamento assignment')
   }
 }
 </script>
@@ -70,6 +95,7 @@ async function handleRunScheduler() {
       :tickets="ticketsStore.tickets"
       :assignments="planningStore.assignments"
       :users="usersStore.users"
+      @assignment-moved="handleAssignmentMoved"
     />
   </div>
 </template>

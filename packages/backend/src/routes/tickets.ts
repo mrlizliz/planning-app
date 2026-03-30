@@ -7,6 +7,7 @@ import { getStore } from '../store/index.js'
 import { ticketSchema } from '@planning/shared'
 import {
   mapJiraIssuesToTickets,
+  mapJiraLinksToDependencies,
   type JiraIssue,
 } from '@planning/shared'
 import { JiraClient, JiraClientError } from '../services/jira-client.js'
@@ -110,6 +111,31 @@ export async function ticketRoutes(app: FastifyInstance) {
     return { ok: true }
   })
 
+  // PUT /api/tickets/bulk — Aggiornamento batch (seleziona N ticket e applica stesse modifiche)
+  app.put(`${prefix}/bulk`, async (request, reply) => {
+    const body = request.body as { ticketIds: string[]; changes: Record<string, unknown> }
+    if (!body.ticketIds?.length) {
+      return reply.status(400).send({ error: 'ticketIds obbligatorio e non vuoto' })
+    }
+
+    const store = getStore()
+    const updated: string[] = []
+    const now = new Date().toISOString()
+
+    for (const id of body.ticketIds) {
+      const existing = store.tickets.get(id)
+      if (!existing) continue
+      const merged = { ...existing, ...body.changes, id: existing.id, jiraKey: existing.jiraKey, updatedAt: now }
+      const parsed = ticketSchema.safeParse(merged)
+      if (parsed.success) {
+        store.tickets.set(id, parsed.data)
+        updated.push(id)
+      }
+    }
+
+    return { ok: true, updatedCount: updated.length, updatedIds: updated }
+  })
+
   // POST /api/tickets/sync-jira — Import da Jira
   app.post(`${prefix}/sync-jira`, async (request, reply) => {
     const body = request.body as {
@@ -144,8 +170,26 @@ export async function ticketRoutes(app: FastifyInstance) {
         store.tickets.set(result.ticket.id, result.ticket)
       }
 
+      // Import dipendenze dai link Jira
+      const ticketMap = new Map(
+        Array.from(store.tickets.values()).map((t) => [t.jiraKey, t.id]),
+      )
+      const newDeps = mapJiraLinksToDependencies(searchResult.issues, ticketMap)
+      let importedDeps = 0
+      for (const dep of newDeps) {
+        // Evita duplicati
+        const exists = Array.from(store.dependencies.values()).some(
+          (d) => d.fromTicketId === dep.fromTicketId && d.toTicketId === dep.toTicketId,
+        )
+        if (!exists) {
+          store.dependencies.set(dep.id, dep)
+          importedDeps++
+        }
+      }
+
       return {
         imported: mappingResults.length,
+        importedDependencies: importedDeps,
         total: searchResult.total,
         tickets: mappingResults.map((r) => ({
           id: r.ticket.id,

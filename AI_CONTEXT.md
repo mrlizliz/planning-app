@@ -20,6 +20,7 @@ Leggilo **prima** di qualsiasi modifica al codice.
 | `docs/DOMAIN_MODEL.md` | Entità, relazioni, glossario, regole di business |
 | `docs/RELEASE_LOG.md` | Storico delle release completate, cosa è stato fatto |
 | `docs/CONVENTIONS.md` | Convenzioni di codice, naming, pattern usati |
+| `docs/NEXT_FEATURES.md` | Checklist feature future con priorità |
 
 ## Progetto
 
@@ -29,16 +30,46 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 
 ## Stack
 
-- **Frontend:** Vue 3 + TypeScript + Vite + PrimeVue + Pinia
-- **Backend:** Fastify + TypeScript (persistenza su file JSON, Prisma + PostgreSQL previsti)
+- **Frontend:** Vue 3 + TypeScript + Vite + PrimeVue + Pinia (dark mode, toast notifications)
+- **Backend:** Fastify + TypeScript + JWT Auth + Swagger/OpenAPI (persistenza JSON + Prisma/SQLite pronto)
 - **Shared:** Monorepo pnpm con pacchetto `@planning/shared` (tipi, scheduling, validatori)
-- **Test:** Vitest (unit + integration)
-- **Infra:** pnpm workspaces + Turborepo
+- **Test:** Vitest (unit + integration) — 251 test (205 shared + 46 backend) + Playwright E2E
+- **Infra:** pnpm workspaces + Turborepo + Docker Compose + GitHub Actions CI
 
 ## Stato attuale
 
-- **Release completata:** Release 5 — Scenario Planning, Forecast & Reporting
-- **Prossima release:** Backlog post-release / Evoluzioni future
+- **Release completate:** Release 0–5 + Hotfix + Feature batch (HIGH+MEDIUM+LOW+Debito tecnico)
+- **Ultimo aggiornamento:** 2026-03-30 — Implementazione completa checklist NEXT_FEATURES.md
+- **Prossima attività:** Vedere `docs/NEXT_FEATURES.md` per le feature rimanenti (non spuntate)
+
+## Feature recenti implementate
+
+### Alta priorità (completate)
+- Prisma + SQLite (schema completo, client generato, switchable via env)
+- JWT Auth (`/api/auth/login`, `/api/auth/me`, decorator authenticate/authorize)
+- Playwright E2E test setup
+- Validazione Zod nelle route PUT milestones/releases
+- Error handling frontend con Toast notifications
+- Drag & drop sulla timeline Gantt
+
+### Media priorità (completate)
+- Associazione ticket → milestone/release da UI (dropdown inline)
+- Filtri avanzati ticket (status, priorità, ricerca testo)
+- Scheduling scenario what-if (senza impattare stato corrente)
+- Import dipendenze Jira nel flusso sync
+- Paginazione Jira (fetchAll automatico)
+- Bulk update ticket (`PUT /api/tickets/bulk`)
+
+### Bassa priorità (completate)
+- Dark mode con toggle persistente
+- Docker Compose (PostgreSQL + backend + frontend)
+- GitHub Actions CI (test + build)
+- Swagger/OpenAPI UI su `/docs`
+
+### Debito tecnico (risolto)
+- Sovrallocazione precisa (day-by-day)
+- 9 test edge case scheduler
+- TypeScript strict mode frontend
 
 ## Come orientarsi
 
@@ -47,4 +78,4 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 3. Leggi `docs/DOMAIN_MODEL.md` per il modello dati
 4. Leggi `docs/CONVENTIONS.md` per le regole di codice
 5. Guarda `docs/RELEASE_LOG.md` per sapere cosa è stato già fatto
-
+6. Guarda `docs/NEXT_FEATURES.md` per le prossime implementazioni

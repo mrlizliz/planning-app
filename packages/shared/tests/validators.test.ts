@@ -86,7 +86,8 @@ const validCalendarException = {
 const validAbsence = {
   id: 'abs1',
   userId: 'u1',
-  date: '2026-04-10',
+  startDate: '2026-04-10',
+  endDate: '2026-04-10',
   type: 'vacation',
   halfDay: false,
   notes: null,
@@ -99,7 +100,7 @@ const validMeeting = {
   type: 'standup',
   durationMinutes: 15,
   frequency: 'daily',
-  dayOfWeek: null,
+  daysOfWeek: [],
 }
 
 const validCalendar = {

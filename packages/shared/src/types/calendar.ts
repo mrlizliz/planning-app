@@ -29,10 +29,12 @@ export type AbsenceType = 'vacation' | 'sick' | 'permit' | 'training' | 'other'
 export interface Absence {
   id: string
   userId: string
-  /** Data in formato ISO YYYY-MM-DD */
-  date: string
+  /** Data inizio assenza in formato ISO YYYY-MM-DD */
+  startDate: string
+  /** Data fine assenza in formato ISO YYYY-MM-DD (uguale a startDate per assenza di 1 giorno) */
+  endDate: string
   type: AbsenceType
-  /** true = mezza giornata (capacità dimezzata) */
+  /** true = mezza giornata (capacità dimezzata) — applicato a tutti i giorni del range */
   halfDay: boolean
   notes: string | null
 }
@@ -60,10 +62,11 @@ export interface RecurringMeeting {
   durationMinutes: number
   frequency: MeetingFrequency
   /**
-   * Giorno della settimana (0=domenica, 1=lunedì, ..., 6=sabato).
+   * Giorni della settimana in cui si tiene il meeting (0=domenica, 1=lunedì, ..., 6=sabato).
    * Per frequency='daily' → ignorato (tutti i giorni lavorativi).
+   * Può contenere più giorni, es. [1,3,5] = lun/mer/ven.
    */
-  dayOfWeek: number | null
+  daysOfWeek: number[]
 }
 
 /** Calendario lavorativo del team */

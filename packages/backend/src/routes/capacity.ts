@@ -92,7 +92,7 @@ export async function capacityRoutes(app: FastifyInstance) {
       }
 
       // Assenza
-      const absence = userAbsences.find((a) => a.date === dateStr)
+      const absence = userAbsences.find((a) => a.startDate <= dateStr && a.endDate >= dateStr)
       const absent = absence ? !absence.halfDay : false
       const halfDayAbsent = absence?.halfDay ?? false
 
@@ -101,7 +101,7 @@ export async function capacityRoutes(app: FastifyInstance) {
       const meetingNames = userMeetings
         .filter((m) => {
           if (m.frequency === 'daily') return dayOfWeek >= 1 && dayOfWeek <= 5
-          if (m.frequency === 'weekly' || m.frequency === 'biweekly') return m.dayOfWeek === dayOfWeek
+          if (m.frequency === 'weekly' || m.frequency === 'biweekly') return m.daysOfWeek.includes(dayOfWeek)
           return false
         })
         .map((m) => m.name)
