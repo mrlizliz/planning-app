@@ -1,0 +1,18 @@
+{
+  "name": "planning-app",
+  "version": "0.0.0",
+  "description": "Jira Planning App — Capacity planning per PM",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "test:shared": "pnpm --filter @planning/shared test",
+    "lint": "turbo lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@planning/frontend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Frontend non ancora configurato — Release 1'",
+    "build": "echo 'Frontend non ancora configurato — Release 1'"
+  },
+  "dependencies": {
+    "@planning/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
+
