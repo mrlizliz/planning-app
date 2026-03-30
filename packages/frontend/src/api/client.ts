@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { Ticket, Assignment, User, Holiday, CalendarException, Absence, RecurringMeeting, WorkingCalendar } from '@planning/shared'
-import type { SchedulerResult } from '@planning/shared'
+import type { SchedulerResult, Milestone, Release, DeploymentDay, DeploymentWindow } from '@planning/shared'
 
 const BASE = '/api'
 
@@ -136,3 +136,45 @@ export const schedulerApi = {
     }>('/scheduler/status'),
 }
 
+// ---- Milestones ----
+
+export const milestonesApi = {
+  list: () => request<Milestone[]>('/milestones'),
+  create: (m: Milestone) =>
+    request<Milestone>('/milestones', { method: 'POST', body: JSON.stringify(m) }),
+  update: (id: string, data: Partial<Milestone>) =>
+    request<Milestone>(`/milestones/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<{ ok: boolean }>(`/milestones/${id}`, { method: 'DELETE' }),
+}
+
+// ---- Releases ----
+
+export const releasesApi = {
+  list: () => request<Release[]>('/releases'),
+  create: (r: Release) =>
+    request<Release>('/releases', { method: 'POST', body: JSON.stringify(r) }),
+  update: (id: string, data: Partial<Release>) =>
+    request<Release>(`/releases/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: string) =>
+    request<{ ok: boolean }>(`/releases/${id}`, { method: 'DELETE' }),
+}
+
+// ---- Deploy ----
+
+export const deployApi = {
+  days: {
+    list: () => request<DeploymentDay[]>('/deploy/days'),
+    create: (d: DeploymentDay) =>
+      request<DeploymentDay>('/deploy/days', { method: 'POST', body: JSON.stringify(d) }),
+    delete: (id: string) =>
+      request<{ ok: boolean }>(`/deploy/days/${id}`, { method: 'DELETE' }),
+  },
+  windows: {
+    list: () => request<DeploymentWindow[]>('/deploy/windows'),
+    create: (w: DeploymentWindow) =>
+      request<DeploymentWindow>('/deploy/windows', { method: 'POST', body: JSON.stringify(w) }),
+    delete: (id: string) =>
+      request<{ ok: boolean }>(`/deploy/windows/${id}`, { method: 'DELETE' }),
+  },
+}

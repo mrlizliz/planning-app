@@ -12,6 +12,9 @@ import type {
   RecurringMeeting,
   WorkingCalendar,
 } from '@planning/shared'
+import type { Milestone } from '@planning/shared'
+import type { Release } from '@planning/shared'
+import type { DeploymentDay, DeploymentWindow } from '@planning/shared'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -28,6 +31,10 @@ export interface Store {
   users: Map<string, User>
   absences: Map<string, Absence>
   meetings: Map<string, RecurringMeeting>
+  milestones: Map<string, Milestone>
+  releases: Map<string, Release>
+  deployDays: Map<string, DeploymentDay>
+  deployWindows: Map<string, DeploymentWindow>
   calendar: WorkingCalendar
 }
 
@@ -39,6 +46,10 @@ interface StoreJSON {
   users: Record<string, User>
   absences: Record<string, Absence>
   meetings: Record<string, RecurringMeeting>
+  milestones: Record<string, Milestone>
+  releases: Record<string, Release>
+  deployDays: Record<string, DeploymentDay>
+  deployWindows: Record<string, DeploymentWindow>
   calendar: WorkingCalendar
 }
 
@@ -49,6 +60,10 @@ function storeToJSON(store: Store): StoreJSON {
     users: Object.fromEntries(store.users),
     absences: Object.fromEntries(store.absences),
     meetings: Object.fromEntries(store.meetings),
+    milestones: Object.fromEntries(store.milestones),
+    releases: Object.fromEntries(store.releases),
+    deployDays: Object.fromEntries(store.deployDays),
+    deployWindows: Object.fromEntries(store.deployWindows),
     calendar: store.calendar,
   }
 }
@@ -60,6 +75,10 @@ function jsonToStore(json: StoreJSON): Store {
     users: new Map(Object.entries(json.users ?? {})),
     absences: new Map(Object.entries(json.absences ?? {})),
     meetings: new Map(Object.entries(json.meetings ?? {})),
+    milestones: new Map(Object.entries(json.milestones ?? {})),
+    releases: new Map(Object.entries(json.releases ?? {})),
+    deployDays: new Map(Object.entries(json.deployDays ?? {})),
+    deployWindows: new Map(Object.entries(json.deployWindows ?? {})),
     calendar: json.calendar ?? {
       id: 'default',
       name: 'Team Calendar',
@@ -114,6 +133,10 @@ export function createStore(): Store {
     users: new Map(),
     absences: new Map(),
     meetings: new Map(),
+    milestones: new Map(),
+    releases: new Map(),
+    deployDays: new Map(),
+    deployWindows: new Map(),
     calendar: {
       id: 'default',
       name: 'Team Calendar',

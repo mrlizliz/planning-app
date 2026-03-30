@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('../views/CapacityView.vue'),
     },
     {
+      path: '/releases',
+      name: 'releases',
+      component: () => import('../views/ReleasesView.vue'),
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: () => import('../views/SettingsView.vue'),

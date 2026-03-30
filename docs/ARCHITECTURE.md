@@ -45,7 +45,8 @@ packages/shared/
 │   │   │                          getMeetingMinutesForDay, isOverallocated
 │   │   ├── scheduler.ts        ← autoSchedule, scheduleDayByDay (day-by-day con capacità reale)
 │   │   ├── jira-mapper.ts      ← mapJiraIssueToTicket, mapJiraIssuesToTickets
-│   │   └── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
+│   │   ├── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
+│   │   └── release-planning.ts ← calculateMilestoneStatus, calculateReleaseForecast, deploy/gate logic
 │   └── validators/             ← Zod schemas per ogni entità
 │       └── index.ts            ← Tutti i validatori (userSchema, ticketSchema, ecc.)
 ├── tests/
@@ -55,7 +56,8 @@ packages/shared/
 │       ├── capacity.test.ts    ← Test T0-03, T0-04 (capacity, duration)
 │       ├── scheduler.test.ts   ← Test T1-U11…U15 (auto-schedule, locked, priority)
 │       ├── jira-mapper.test.ts ← Test T1-U01…U03 (mapping, warning, batch)
-│       └── capacity-real.test.ts ← Test T2-U01…U14 (capacità reale, Outlook filtri)
+│       ├── capacity-real.test.ts ← Test T2-U01…U14 (capacità reale, Outlook filtri)
+│       └── release-planning.test.ts ← Test T3-U01…U10 (milestone, release, deploy, gate)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -78,6 +80,18 @@ packages/shared/
 | `mapEventsToCapacityBlocks(events)` | `outlook-mapper.ts` | Converte eventi → blocchi di capacità ridotta |
 | `aggregateCapacityByDay(blocks)` | `outlook-mapper.ts` | Aggrega blocchi per giorno |
 
+### Funzioni scheduling aggiunte in Release 3
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `calculateMilestoneStatus(ms, endDates)` | `release-planning.ts` | Calcola stato milestone: on_track / at_risk / delayed |
+| `calculateReleaseForecast(endDates)` | `release-planning.ts` | Forecast release = max(endDate) dei ticket |
+| `isDeployDay(date, env, days, windows)` | `release-planning.ts` | Verifica se una data è giorno di deploy |
+| `nextDeployDay(from, env, days, windows)` | `release-planning.ts` | Trova prossimo deploy disponibile |
+| `checkDeployWarning(qaEnd, release, ...)` | `release-planning.ts` | Warning se QA finisce dopo ultimo deploy |
+| `canStartQA(devAssignment)` | `release-planning.ts` | Gate: DEV completato prima di QA |
+| `isReadyForRelease(qaAssignment, ...)` | `release-planning.ts` | Gate: QA completato + buffer rispettato |
+
 ## Pacchetto: @planning/backend
 
 ```
@@ -94,12 +108,14 @@ packages/backend/
 │       ├── assignments.ts    ← CRUD assignment
 │       ├── calendar.ts       ← Holidays, exceptions, absences, meetings
 │       ├── scheduler.ts      ← Trigger auto-scheduling
-│       └── capacity.ts       ← GET breakdown giornaliero per utente
+│       ├── capacity.ts       ← GET breakdown giornaliero per utente
+│       └── releases.ts       ← CRUD milestone, release, deploy days/windows
 ├── data/
 │   └── store.json            ← 💾 Dati persistenti (in .gitignore)
 ├── tests/
 │   ├── api.test.ts           ← Integration test API (T1-I01…I04)
-│   └── capacity.test.ts      ← Integration test capacità (T2-I01…I04)
+│   ├── capacity.test.ts      ← Integration test capacità (T2-I01…I04)
+│   └── releases.test.ts      ← Integration test release (T3-I01…I04)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -118,7 +134,7 @@ packages/frontend/
 │   ├── main.ts                ← Bootstrap Vue 3 + Pinia + PrimeVue + Router
 │   ├── App.vue                ← Layout principale con header + nav
 │   ├── router/
-│   │   └── index.ts           ← 4 route: /, /tickets, /capacity, /settings
+│   │   └── index.ts           ← 5 route: /, /tickets, /capacity, /releases, /settings
 │   ├── stores/
 │   │   ├── tickets.ts         ← Pinia store ticket + sync Jira
 │   │   ├── planning.ts        ← Pinia store assignment + scheduler
@@ -129,6 +145,7 @@ packages/frontend/
 │   │   ├── PlanningView.vue   ← Timeline Gantt + auto-schedule
 │   │   ├── TicketsView.vue    ← Lista ticket + import Jira
 │   │   ├── CapacityView.vue   ← Heatmap capacità + CRUD assenze + CRUD meeting
+│   │   ├── ReleasesView.vue   ← Milestone, release, deploy days/windows
 │   │   └── SettingsView.vue   ← Gestione team + festivi
 │   └── components/
 │       ├── GanttTimeline.vue       ← Timeline settimanale

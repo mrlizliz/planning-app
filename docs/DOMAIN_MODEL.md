@@ -320,6 +320,46 @@ for each working_day starting from start_date:
 
 Questo approccio sostituisce la formula piatta `duration = ceil(estimate / capacity)` e produce date realistiche che tengono conto di meeting e assenze giorno per giorno.
 
+### Stato milestone (Release 3)
+
+```
+for each ticket associated to milestone:
+  diff = business_days(ticket.endDate, milestone.targetDate)
+  if diff < 0 → return 'delayed'
+  if diff ≤ 2 → mark 'at_risk'
+if any at_risk → return 'at_risk'
+return 'on_track'
+```
+
+### Forecast release (Release 3)
+
+```
+forecast_date = max(endDate) di tutti i ticket con releaseId = release.id
+```
+
+### Gate di processo (Release 3)
+
+```
+canStartQA(ticket):
+  devAssignment must have endDate ≠ null
+  
+isReadyForRelease(ticket, deployDate, bufferDays):
+  qaAssignment must have endDate ≠ null
+  business_days(qaEndDate, deployDate) ≥ bufferDays
+```
+
+### Deploy day check (Release 3)
+
+```
+isDeployDay(date, env):
+  1. Check override window per data specifica → usa window.allowed
+  2. Check pattern ricorrente (dayOfWeek + environment + active)
+
+checkDeployWarning(qaEndDate, releaseTargetDate, env):
+  Trova ultimo deploy tra qaEndDate e releaseTargetDate
+  Warning se qaEndDate > lastDeployDate
+```
+
 ## Convenzione unità di misura
 
 | Concetto | Unità interna | Conversione UI |

@@ -10,6 +10,7 @@ import { assignmentRoutes } from './routes/assignments.js'
 import { calendarRoutes } from './routes/calendar.js'
 import { schedulerRoutes } from './routes/scheduler.js'
 import { capacityRoutes } from './routes/capacity.js'
+import { releaseRoutes } from './routes/releases.js'
 import { saveToDisk } from './store/index.js'
 
 export async function buildApp(options: { logger?: boolean; persist?: boolean } = {}) {
@@ -39,6 +40,7 @@ export async function buildApp(options: { logger?: boolean; persist?: boolean } 
   await app.register(calendarRoutes)
   await app.register(schedulerRoutes)
   await app.register(capacityRoutes)
+  await app.register(releaseRoutes)
 
   // Health check
   app.get('/api/health', async () => {

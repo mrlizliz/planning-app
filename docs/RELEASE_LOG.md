@@ -315,3 +315,73 @@ Filtri configurabili:
 - ❌ Sync automatico Outlook (previsto come pulsante in release futura)
 - ❌ Test E2E Playwright
 
+---
+
+## Release 3 — Milestone, Release & Deployment Calendar
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
+
+### Obiettivo
+
+Gestire la pianificazione rispetto a milestone e finestre di rilascio (deploy DEV e PROD).
+
+### Cosa è stato fatto
+
+#### 1. Funzioni pure release-planning (`@planning/shared`)
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `calculateMilestoneStatus` | Calcola stato milestone: `on_track` / `at_risk` (entro 2gg) / `delayed` |
+| `calculateReleaseForecast` | Forecast = `max(endDate)` dei ticket associati |
+| `isDeployDay` | Verifica se una data è giorno di deploy (pattern + override) |
+| `nextDeployDay` | Trova prossimo deploy disponibile (max 90gg) |
+| `checkDeployWarning` | Warning se fine QA cade dopo ultimo deploy prima della release |
+| `canStartQA` | Gate: DEV deve avere endDate prima che QA possa iniziare |
+| `isReadyForRelease` | Gate: QA completato + buffer configurabile rispettato |
+
+#### 2. Backend — Route Milestones, Releases, Deploy
+
+Nuovi endpoint REST:
+
+| Route | Metodo | Descrizione |
+|-------|--------|-------------|
+| `/api/milestones` | GET, POST, PUT, DELETE | CRUD milestone con stato calcolato automaticamente |
+| `/api/releases` | GET, POST, PUT, DELETE | CRUD release con forecast calcolato |
+| `/api/deploy/days` | GET, POST, DELETE | Giorni di deploy ricorrenti (DEV/PROD) |
+| `/api/deploy/windows` | GET, POST, DELETE | Override puntuali (consentire/bloccare deploy) |
+
+Store aggiornato con: `milestones`, `releases`, `deployDays`, `deployWindows` (persistiti su JSON).
+
+#### 3. Frontend — ReleasesView
+
+Nuova vista **🚀 Release** (`/releases`) con 4 sezioni:
+- **🎯 Milestone**: CRUD con badge stato colorato (✅/⚠️/🔴)
+- **📦 Release**: CRUD con forecast badge (verde se in tempo, rosso se in ritardo)
+- **📅 Giorni di Deploy**: pattern ricorrenti per env (DEV/PROD) + giorno settimana
+- **🪟 Finestre Deploy**: override puntuali (consentire/bloccare un giorno specifico)
+
+Link "Release" aggiunto nella navigation bar.
+
+#### 4. Test automatici
+
+| File | Test IDs | Casi |
+|------|----------|------|
+| `shared/tests/scheduling/release-planning.test.ts` | T3-U01…U10 | 19 test (milestone status, forecast, deploy, gate, buffer) |
+| `backend/tests/releases.test.ts` | T3-I01…I04 | 4 test (milestone+scheduling, release forecast, deploy CRUD, delayed) |
+
+**Totale test: 163** (142 shared + 21 backend)
+
+### Decisioni chiave
+
+1. **Stato milestone calcolato a runtime** — Non salvato, ricalcolato ad ogni GET basandosi sulle endDate degli assignment
+2. **Forecast release calcolato a runtime** — `max(endDate)` dei ticket associati via `releaseId`
+3. **Deploy pattern + override** — Pattern ricorrenti (es. "ogni martedì DEV") con override puntuali per eccezioni
+4. **Gate come funzioni pure** — `canStartQA` e `isReadyForRelease` sono verificabili senza DB
+5. **Buffer configurabile** — Default 1 giorno lavorativo tra fine QA e deploy PROD
+
+### Non fatto (rimandato)
+
+- ❌ Vista Gantt raggruppata per milestone/release (evoluzione Release 4)
+- ❌ Associazione ticket→milestone/release da UI ticket (serve UI ticket aggiornata)
+- ❌ Test E2E Playwright

@@ -41,3 +41,14 @@ export {
   mapJiraIssueToTicket,
   mapJiraIssuesToTickets,
 } from './jira-mapper.js'
+
+export {
+  calculateMilestoneStatus,
+  calculateReleaseForecast,
+  isDeployDay,
+  nextDeployDay,
+  checkDeployWarning,
+  canStartQA,
+  isReadyForRelease,
+  type GateError,
+} from './release-planning.js'

@@ -37,8 +37,8 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 
 ## Stato attuale
 
-- **Release completata:** Release 2 — Real Capacity & Microsoft Calendar Integration
-- **Prossima release:** Release 3 — Milestone, Release & Deployment Calendar
+- **Release completata:** Release 3 — Milestone, Release & Deployment Calendar
+- **Prossima release:** Release 4 — Dependencies, Priorities & Advanced Scheduling
 
 ## Come orientarsi
 
