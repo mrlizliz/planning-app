@@ -5,6 +5,7 @@
 import type { Ticket } from '../types/ticket.js'
 import type { Assignment } from '../types/assignment.js'
 import type { User } from '../types/user.js'
+import type { Dependency } from '../types/dependency.js'
 import type { Absence } from '../types/calendar.js'
 import type { RecurringMeeting } from '../types/calendar.js'
 import { addWorkingDays, nextWorkingDay, isWorkingDay, type CalendarConfig } from './calendar.js'
@@ -15,6 +16,7 @@ import {
   getMeetingMinutesForDay,
   isOverallocated,
 } from './capacity.js'
+import { topologicalSort, getPredecessors } from './dependency-graph.js'
 import { format, parseISO, getDay, addDays } from 'date-fns'
 
 // ---- Types ----
@@ -35,6 +37,8 @@ export interface SchedulerInput {
   holidays: HolidayEntry[]
   absences: Absence[]
   meetings: RecurringMeeting[]
+  /** Dipendenze tra ticket (finish_to_start, blocking, parallel) */
+  dependencies?: Dependency[]
   /** Data di inizio pianificazione (default: oggi) */
   planningStartDate: string
 }
@@ -249,6 +253,11 @@ function scheduleDayByDay(
  * 4. Calcola la durata basata su effort / (capacity × allocation%)
  * 5. Calcola end_date con addWorkingDays
  * 6. Rileva sovrallocazioni
+ *
+ * Se le dipendenze sono presenti:
+ * - Usa ordinamento topologico per rispettare le dipendenze
+ * - Un ticket successore (finish_to_start/blocking) inizia dopo la fine del predecessore
+ * - DEV→QA implicito: assignment QA inizia dopo la fine dell'assignment DEV dello stesso ticket
  */
 export function autoSchedule(input: SchedulerInput): SchedulerResult {
   const {
@@ -259,6 +268,7 @@ export function autoSchedule(input: SchedulerInput): SchedulerResult {
     holidays = [],
     absences,
     meetings,
+    dependencies = [],
     planningStartDate,
   } = input
 
@@ -295,88 +305,170 @@ export function autoSchedule(input: SchedulerInput): SchedulerResult {
     })
   }
 
-  // Ordina gli assignment in base alla priorità del ticket associato
-  const sortedUnlocked = [...unlockedAssignments].sort((a, b) => {
-    const ticketA = ticketMap.get(a.ticketId)
-    const ticketB = ticketMap.get(b.ticketId)
-    if (!ticketA || !ticketB) return 0
-    return getTicketPriority(ticketA) - getTicketPriority(ticketB)
-  })
+  // Determina l'ordine dei ticket
+  const ticketIds = [...new Set(unlockedAssignments.map((a) => a.ticketId))]
+  let orderedTicketIds: string[]
 
-  // Schedule di ogni assignment
-  for (const assignment of sortedUnlocked) {
-    const ticket = ticketMap.get(assignment.ticketId)
-    const user = userMap.get(assignment.userId)
+  if (dependencies.length > 0) {
+    // Ordinamento topologico (rispetta le dipendenze)
+    const topoResult = topologicalSort(ticketIds, dependencies)
+    if (topoResult === null) {
+      // Ciclo rilevato — fallback a ordinamento per priorità
+      orderedTicketIds = ticketIds.sort((a, b) => {
+        const tA = ticketMap.get(a)
+        const tB = ticketMap.get(b)
+        if (!tA || !tB) return 0
+        return getTicketPriority(tA) - getTicketPriority(tB)
+      })
+    } else {
+      orderedTicketIds = topoResult
+    }
+  } else {
+    // Senza dipendenze: ordina per priorità
+    orderedTicketIds = ticketIds.sort((a, b) => {
+      const tA = ticketMap.get(a)
+      const tB = ticketMap.get(b)
+      if (!tA || !tB) return 0
+      return getTicketPriority(tA) - getTicketPriority(tB)
+    })
+  }
 
-    // Validazioni
-    if (!user) {
-      errors.push({
+  // Mappa: ticketId → endDate più tarda dei suoi assignment schedulati
+  const ticketEndDates = new Map<string, string>()
+  // Includi endDate dei locked
+  for (const locked of lockedAssignments) {
+    if (locked.endDate) {
+      const existing = ticketEndDates.get(locked.ticketId)
+      if (!existing || locked.endDate > existing) {
+        ticketEndDates.set(locked.ticketId, locked.endDate)
+      }
+    }
+  }
+
+  // Ordina gli assignment per ticket, poi per ruolo (DEV prima di QA)
+  const roleOrder: Record<string, number> = { dev: 0, qa: 1 }
+
+  for (const ticketId of orderedTicketIds) {
+    const ticketAssignments = unlockedAssignments
+      .filter((a) => a.ticketId === ticketId)
+      .sort((a, b) => (roleOrder[a.role] ?? 0) - (roleOrder[b.role] ?? 0))
+
+    for (const assignment of ticketAssignments) {
+      const ticket = ticketMap.get(assignment.ticketId)
+      const user = userMap.get(assignment.userId)
+
+      // Validazioni
+      if (!user) {
+        errors.push({
+          assignmentId: assignment.id,
+          ticketId: assignment.ticketId,
+          reason: 'missing_user',
+        })
+        continue
+      }
+
+      if (!ticket || ticket.estimateMinutes === null || ticket.estimateMinutes === 0) {
+        errors.push({
+          assignmentId: assignment.id,
+          ticketId: assignment.ticketId,
+          reason: 'missing_estimate',
+        })
+        continue
+      }
+
+      // Calcola capacità media per validazione
+      const avgCapacity = user.dailyWorkingMinutes - user.dailyOverheadMinutes
+      if (avgCapacity <= 0) {
+        errors.push({
+          assignmentId: assignment.id,
+          ticketId: assignment.ticketId,
+          reason: 'zero_capacity',
+        })
+        continue
+      }
+
+      // Calcola la data di inizio più tarda considerando le dipendenze
+      let earliestStart = startDate
+
+      // 1. Dipendenze tra ticket: il successore inizia dopo la fine del predecessore
+      if (dependencies.length > 0) {
+        const predecessorIds = getPredecessors(ticketId, dependencies)
+        for (const predId of predecessorIds) {
+          const predEndDate = ticketEndDates.get(predId)
+          if (predEndDate) {
+            const predEnd = parseISO(predEndDate)
+            const dayAfter = addDays(predEnd, 1)
+            if (dayAfter > earliestStart) {
+              earliestStart = dayAfter
+            }
+          }
+        }
+      }
+
+      // 2. DEV→QA implicito: se questo è QA, deve iniziare dopo DEV dello stesso ticket
+      if (assignment.role === 'qa') {
+        const devEndDate = ticketEndDates.get(ticketId)
+        if (devEndDate) {
+          // C'è almeno un assignment DEV schedulato per questo ticket
+          // Trova la endDate dell'assignment DEV più recente
+          const devScheduled = scheduled.filter(
+            (s) => s.ticketId === ticketId && unlockedAssignments.concat(lockedAssignments).find((a) => a.id === s.assignmentId)?.role === 'dev',
+          )
+          // Usiamo anche la endDate dello stesso ticket da ticketEndDates (potrebbe essere DEV)
+          const devEnd = parseISO(devEndDate)
+          const dayAfter = addDays(devEnd, 1)
+          if (dayAfter > earliestStart) {
+            earliestStart = dayAfter
+          }
+        }
+      }
+
+      // Trova la prossima data disponibile per l'utente
+      const userCalendar = buildCalendarForUser(calendar, holidays, user.office)
+      const assignmentStart = getNextAvailableDate(
+        assignment.userId,
+        earliestStart,
+        scheduled,
+        userCalendar,
+      )
+
+      // Calcola end date iterando giorno per giorno con capacità reale
+      const scheduling = scheduleDayByDay(
+        assignmentStart,
+        ticket.estimateMinutes,
+        assignment.allocationPercent,
+        user,
+        absences,
+        meetings,
+        userCalendar,
+      )
+
+      if (!scheduling) {
+        errors.push({
+          assignmentId: assignment.id,
+          ticketId: assignment.ticketId,
+          reason: 'zero_capacity',
+        })
+        continue
+      }
+
+      const result: ScheduledAssignment = {
         assignmentId: assignment.id,
         ticketId: assignment.ticketId,
-        reason: 'missing_user',
-      })
-      continue
+        userId: assignment.userId,
+        startDate: format(scheduling.realStartDate, 'yyyy-MM-dd'),
+        endDate: format(scheduling.endDate, 'yyyy-MM-dd'),
+        durationDays: scheduling.durationDays,
+      }
+
+      scheduled.push(result)
+
+      // Aggiorna la endDate massima del ticket
+      const currentMax = ticketEndDates.get(ticketId)
+      if (!currentMax || result.endDate > currentMax) {
+        ticketEndDates.set(ticketId, result.endDate)
+      }
     }
-
-    if (!ticket || ticket.estimateMinutes === null || ticket.estimateMinutes === 0) {
-      errors.push({
-        assignmentId: assignment.id,
-        ticketId: assignment.ticketId,
-        reason: 'missing_estimate',
-      })
-      continue
-    }
-
-    // Calcola capacità media per validazione (almeno un giorno deve avere capacità)
-    const avgCapacity = user.dailyWorkingMinutes - user.dailyOverheadMinutes
-    if (avgCapacity <= 0) {
-      errors.push({
-        assignmentId: assignment.id,
-        ticketId: assignment.ticketId,
-        reason: 'zero_capacity',
-      })
-      continue
-    }
-
-    // Trova la prossima data disponibile per l'utente
-    const userCalendar = buildCalendarForUser(calendar, holidays, user.office)
-    const assignmentStart = getNextAvailableDate(
-      assignment.userId,
-      startDate,
-      scheduled,
-      userCalendar,
-    )
-
-    // Calcola end date iterando giorno per giorno con capacità reale
-    const scheduling = scheduleDayByDay(
-      assignmentStart,
-      ticket.estimateMinutes,
-      assignment.allocationPercent,
-      user,
-      absences,
-      meetings,
-      userCalendar,
-    )
-
-    if (!scheduling) {
-      errors.push({
-        assignmentId: assignment.id,
-        ticketId: assignment.ticketId,
-        reason: 'zero_capacity',
-      })
-      continue
-    }
-
-    const result: ScheduledAssignment = {
-      assignmentId: assignment.id,
-      ticketId: assignment.ticketId,
-      userId: assignment.userId,
-      startDate: format(scheduling.realStartDate, 'yyyy-MM-dd'),
-      endDate: format(scheduling.endDate, 'yyyy-MM-dd'),
-      durationDays: scheduling.durationDays,
-    }
-
-    scheduled.push(result)
   }
 
   // Rileva sovrallocazioni

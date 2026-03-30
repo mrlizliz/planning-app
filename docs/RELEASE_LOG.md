@@ -385,3 +385,108 @@ Link "Release" aggiunto nella navigation bar.
 - ❌ Vista Gantt raggruppata per milestone/release (evoluzione Release 4)
 - ❌ Associazione ticket→milestone/release da UI ticket (serve UI ticket aggiornata)
 - ❌ Test E2E Playwright
+
+---
+
+## Release 4 — Dependencies, Priorities & Advanced Scheduling
+
+**Data:** 2026-03-30
+**Stato:** ✅ Completata
+
+### Obiettivo
+
+Rendere il motore di pianificazione più affidabile e vicino alla realtà operativa del team, con supporto a dipendenze tra ticket, ordinamento topologico, alert intelligenti e impact analysis.
+
+### Cosa è stato fatto
+
+#### 1. Dependency Graph (`@planning/shared/src/scheduling/dependency-graph.ts`)
+
+Nuovo modulo con funzioni pure per la gestione del grafo delle dipendenze:
+
+| Funzione | Descrizione |
+|----------|-------------|
+| `buildAdjacencyList(deps)` | Costruisce mappa di adiacenza (esclude `parallel`) |
+| `getImplicitDevQaDependencies(assignments)` | Genera dipendenze implicite DEV→QA per lo stesso ticket |
+| `detectCycles(deps)` | Rileva cicli con DFS — restituisce i ticket nel ciclo |
+| `topologicalSort(ticketIds, deps)` | Ordinamento topologico (Kahn's algorithm) — null se ciclo |
+| `getImpactedTickets(ticketId, deps)` | Trova tutti i ticket a valle (transitivo) |
+| `getPredecessors(ticketId, deps)` | Predecessori diretti di un ticket |
+| `getSuccessors(ticketId, deps)` | Successori diretti di un ticket |
+
+#### 2. Alert Engine (`@planning/shared/src/scheduling/alerts.ts`)
+
+Nuovo modulo per la generazione di alert intelligenti:
+
+| Alert Type | Severity | Trigger |
+|-----------|----------|---------|
+| `missing_estimate` | warning | Ticket senza stima o con stima zero |
+| `dependency_cycle` | error | Ciclo di dipendenze rilevato nel grafo |
+| `blocking_dependency` | error | Ticket bloccante non schedulato |
+| `late_for_release` | warning | endDate ticket > targetDate release |
+| `overallocation` | warning | Minuti assegnati > capacità netta giornaliera |
+
+#### 3. Scheduler con dipendenze (`@planning/shared/src/scheduling/scheduler.ts`)
+
+L'auto-scheduler ora supporta:
+- **Ordinamento topologico**: i ticket vengono schedulati rispettando le dipendenze
+- **Finish-to-start**: il successore inizia dopo la fine del predecessore
+- **Blocking**: equivalente a finish_to_start con evidenza visiva negli alert
+- **Parallel**: non crea vincoli di ordinamento (ticket possono sovrapporsi)
+- **DEV→QA implicito**: se un ticket ha assignment DEV e QA, QA inizia dopo DEV
+- **Priorità**: a parità di dipendenze, rispetta priorityOverride > jiraPriority
+- **Locked invariato**: ticket con flag `locked` non vengono mai ricalcolati
+
+#### 4. Jira Mapper — Import issuelinks (`@planning/shared/src/scheduling/jira-mapper.ts`)
+
+Nuova funzione `mapJiraLinksToDependencies`:
+- Mappa `issuelinks` Jira a `Dependency` interne
+- Supporta link types: blocks, depends on, relates, clones
+- Gestisce link inward/outward con direzione corretta
+- Evita duplicati (set-based dedup)
+
+#### 5. Backend — Route Dependencies + Store aggiornato
+
+Nuovi endpoint REST:
+
+| Route | Metodo | Descrizione |
+|-------|--------|-------------|
+| `/api/dependencies` | GET | Lista dipendenze (filtro opzionale per ticketId) |
+| `/api/dependencies` | POST | Crea dipendenza (con validazione anti-ciclo) |
+| `/api/dependencies/:id` | DELETE | Rimuovi dipendenza |
+| `/api/dependencies/impact/:ticketId` | GET | Impact analysis: ticket a valle impattati |
+
+Store aggiornato con `dependencies: Map<string, Dependency>`.
+Lo scheduler route ora passa le dipendenze all'auto-scheduler e restituisce `alerts` nel risultato.
+
+#### 6. Frontend — Alert e Dependencies
+
+- **AlertsBanner component**: visualizza gli alert con icone per severity (🔴 error, ⚠️ warning, ℹ️ info) e label per tipo
+- **PlanningView aggiornata**: mostra AlertsBanner dopo l'auto-schedule
+- **Planning store**: gestione dipendenze (CRUD) + array `alerts` reattivo
+- **API client**: endpoint per dependencies (list, create, delete, impact)
+
+#### 7. Test automatici
+
+| File | Test IDs | Casi |
+|------|----------|------|
+| `shared/tests/scheduling/dependency-graph.test.ts` | T4-U01…U10 | 23 test (cicli, topo sort, impact, predecessori, successori, DEV→QA implicito, scheduler con deps) |
+| `shared/tests/scheduling/alerts.test.ts` | T4-U11…U13 | 11 test (missing_estimate, dependency_cycle, blocking, late_for_release, overallocation) |
+| `backend/tests/dependencies.test.ts` | T4-I01…I04 | 8 test (CRUD deps, anti-ciclo, auto-plan con deps, override+ricalcolo, alerts, impact API) |
+
+**Totale test: 205** (176 shared + 29 backend)
+
+### Decisioni chiave
+
+1. **Kahn's algorithm per topological sort** — BFS-based, naturale per rilevare cicli (nodi non processati = ciclo)
+2. **Dipendenze `parallel` ignorate nell'ordinamento** — Non creano vincoli, i ticket possono sovrapporsi liberamente
+3. **DEV→QA implicito nello scheduler** — Non serve creare una dipendenza esplicita: lo scheduler ordina DEV prima di QA per ogni ticket
+4. **Validazione anti-ciclo nel backend** — Il POST `/api/dependencies` rifiuta dipendenze che creerebbero cicli
+5. **Alert generati post-scheduling** — Gli alert vengono calcolati dopo l'auto-schedule per avere i dati aggiornati
+6. **Impact analysis come funzione pura** — `getImpactedTickets` è testabile senza backend, usabile sia da frontend che da backend
+
+### Non fatto (rimandato)
+
+- ❌ Drag & drop su timeline (richiede libreria Gantt avanzata — Release futura)
+- ❌ Impact analysis popup pre-conferma (UI complessa — Release futura)
+- ❌ Ordinamento per release target / milestone / data target (già supportato come feature, UI da evolvere)
+- ❌ Test E2E Playwright

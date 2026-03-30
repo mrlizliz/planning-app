@@ -5,6 +5,7 @@ import { usePlanningStore } from '../stores/planning.js'
 import { useUsersStore } from '../stores/users.js'
 import GanttTimeline from '../components/GanttTimeline.vue'
 import OverallocationBanner from '../components/OverallocationBanner.vue'
+import AlertsBanner from '../components/AlertsBanner.vue'
 
 const ticketsStore = useTicketsStore()
 const planningStore = usePlanningStore()
@@ -14,6 +15,7 @@ onMounted(async () => {
   await Promise.all([
     ticketsStore.fetchTickets(),
     planningStore.fetchAssignments(),
+    planningStore.fetchDependencies(),
     usersStore.fetchUsers(),
   ])
 })
@@ -45,6 +47,11 @@ async function handleRunScheduler() {
         </button>
       </div>
     </div>
+
+    <AlertsBanner
+      v-if="planningStore.alerts.length > 0"
+      :alerts="planningStore.alerts"
+    />
 
     <OverallocationBanner
       v-if="planningStore.lastScheduleResult?.overallocations?.length"
@@ -126,4 +133,3 @@ async function handleRunScheduler() {
   color: #4361ee;
 }
 </style>
-

@@ -37,8 +37,8 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 
 ## Stato attuale
 
-- **Release completata:** Release 3 — Milestone, Release & Deployment Calendar
-- **Prossima release:** Release 4 — Dependencies, Priorities & Advanced Scheduling
+- **Release completata:** Release 4 — Dependencies, Priorities & Advanced Scheduling
+- **Prossima release:** Release 5 — Scenario Planning, Forecast & Reporting
 
 ## Come orientarsi
 

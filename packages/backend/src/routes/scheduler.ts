@@ -4,7 +4,7 @@
 
 import type { FastifyInstance } from 'fastify'
 import { getStore } from '../store/index.js'
-import { autoSchedule, type SchedulerInput } from '@planning/shared'
+import { autoSchedule, generateAlerts, type SchedulerInput } from '@planning/shared'
 import { format } from 'date-fns'
 
 export async function schedulerRoutes(app: FastifyInstance) {
@@ -31,6 +31,7 @@ export async function schedulerRoutes(app: FastifyInstance) {
       })),
       absences: Array.from(store.absences.values()),
       meetings: Array.from(store.meetings.values()),
+      dependencies: Array.from(store.dependencies.values()),
       planningStartDate,
     }
 
@@ -69,6 +70,13 @@ export async function schedulerRoutes(app: FastifyInstance) {
       scheduled: result.scheduled,
       errors: result.errors,
       overallocations: result.overallocations,
+      alerts: generateAlerts({
+        tickets: Array.from(store.tickets.values()),
+        assignments: Array.from(store.assignments.values()),
+        dependencies: Array.from(store.dependencies.values()),
+        releases: Array.from(store.releases.values()),
+        overallocations: result.overallocations,
+      }),
     }
   })
 

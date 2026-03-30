@@ -40,6 +40,8 @@ export {
 export {
   mapJiraIssueToTicket,
   mapJiraIssuesToTickets,
+  mapJiraLinksToDependencies,
+  type JiraIssue,
 } from './jira-mapper.js'
 
 export {
@@ -52,3 +54,24 @@ export {
   isReadyForRelease,
   type GateError,
 } from './release-planning.js'
+
+export {
+  buildAdjacencyList,
+  getImplicitDevQaDependencies,
+  detectCycles,
+  topologicalSort,
+  getImpactedTickets,
+  getPredecessors,
+  getSuccessors,
+  type DependencyEdge,
+  type CycleDetectionResult,
+  type ImpactAnalysisResult,
+} from './dependency-graph.js'
+
+export {
+  generateAlerts,
+  type AlertSeverity,
+  type AlertType,
+  type PlanningAlert,
+  type AlertsInput,
+} from './alerts.js'

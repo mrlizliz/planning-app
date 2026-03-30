@@ -3,7 +3,8 @@
 // ============================================================
 
 import type { Ticket, Assignment, User, Holiday, CalendarException, Absence, RecurringMeeting, WorkingCalendar } from '@planning/shared'
-import type { SchedulerResult, Milestone, Release, DeploymentDay, DeploymentWindow } from '@planning/shared'
+import type { SchedulerResult, Milestone, Release, Dependency, DeploymentDay, DeploymentWindow } from '@planning/shared'
+import type { PlanningAlert } from '@planning/shared'
 
 const BASE = '/api'
 
@@ -121,7 +122,7 @@ export const meetingsApi = {
 
 export const schedulerApi = {
   run: (planningStartDate?: string) =>
-    request<SchedulerResult & { scheduledCount: number; errorsCount: number }>('/scheduler/run', {
+    request<SchedulerResult & { scheduledCount: number; errorsCount: number; alerts?: PlanningAlert[] }>('/scheduler/run', {
       method: 'POST',
       body: JSON.stringify({ planningStartDate }),
     }),
@@ -177,4 +178,19 @@ export const deployApi = {
     delete: (id: string) =>
       request<{ ok: boolean }>(`/deploy/windows/${id}`, { method: 'DELETE' }),
   },
+}
+
+// ---- Dependencies ----
+
+export const dependenciesApi = {
+  list: (ticketId?: string) =>
+    request<Dependency[]>(`/dependencies${ticketId ? `?ticketId=${ticketId}` : ''}`),
+  create: (dep: Dependency) =>
+    request<Dependency>('/dependencies', { method: 'POST', body: JSON.stringify(dep) }),
+  delete: (id: string) =>
+    request<{ ok: boolean }>(`/dependencies/${id}`, { method: 'DELETE' }),
+  impact: (ticketId: string) =>
+    request<{ impactedTicketIds: string[]; impactedTickets: Ticket[]; chains: Array<{ ticketId: string; path: string[] }> }>(
+      `/dependencies/impact/${ticketId}`,
+    ),
 }

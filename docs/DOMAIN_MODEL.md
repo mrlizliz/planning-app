@@ -208,6 +208,30 @@ Relazione tra ticket.
 | `toTicketId` | string | Ticket successore |
 | `type` | DependencyType | `finish_to_start \| parallel \| blocking` |
 | `importedFromJira` | boolean | Importato da issuelinks |
+| `createdAt` | string | Timestamp creazione |
+
+**Comportamento per tipo di dipendenza:**
+
+| Tipo | Vincolo scheduling | Note |
+|------|-------------------|------|
+| `finish_to_start` | B.start ≥ A.end + 1 | Dipendenza standard |
+| `blocking` | B.start ≥ A.end + 1 | Come finish_to_start + genera alert se A non completato |
+| `parallel` | Nessun vincolo | A e B possono sovrapporsi |
+
+**DEV→QA implicito:** Se un ticket ha assignment DEV e QA, lo scheduler garantisce automaticamente che QA inizi dopo la fine di DEV senza necessità di una dipendenza esplicita.
+
+### PlanningAlert (Release 4 — non persistito)
+
+Alert generato dall'engine di scheduling per segnalare anomalie.
+
+| Campo | Tipo | Note |
+|-------|------|------|
+| `id` | string | Generato al volo (non salvato) |
+| `type` | AlertType | `missing_estimate \| dependency_cycle \| blocking_dependency \| late_for_release \| overallocation` |
+| `severity` | AlertSeverity | `error \| warning \| info` |
+| `message` | string | Messaggio leggibile |
+| `ticketIds` | string[] | Ticket coinvolti |
+| `userIds` | string[] | User coinvolti (se rilevante) |
 
 ### DeploymentDay
 
@@ -358,6 +382,40 @@ isDeployDay(date, env):
 checkDeployWarning(qaEndDate, releaseTargetDate, env):
   Trova ultimo deploy tra qaEndDate e releaseTargetDate
   Warning se qaEndDate > lastDeployDate
+```
+
+### Dependency graph (Release 4)
+
+```
+Topological sort (Kahn's algorithm):
+  1. Calcola in-degree per ogni ticket
+  2. Inizia con ticket a in-degree 0 (nessun predecessore)
+  3. Per ogni ticket processato, decrementa in-degree dei successori
+  4. Se non tutti i ticket sono processati → ciclo rilevato
+
+Scheduling con dipendenze:
+  1. Ordina ticket con topological sort
+  2. Per ogni ticket in ordine:
+     - earliestStart = max(planningStartDate, predecessori.endDate + 1)
+     - Se assignment QA: earliestStart = max(earliestStart, DEV.endDate + 1)
+     - Schedule day-by-day a partire da earliestStart
+
+Cycle detection (DFS):
+  Colora nodi: WHITE (non visitato), GRAY (in stack), BLACK (completato)
+  Se durante DFS si raggiunge un nodo GRAY → ciclo trovato
+
+Impact analysis:
+  BFS/DFS dal ticket modificato → trova tutti i successori transitivi
+```
+
+### Alert intelligenti (Release 4)
+
+```
+missing_estimate:   ticket.estimateMinutes == null || ticket.estimateMinutes == 0
+dependency_cycle:   detectCycles(deps).hasCycle == true
+blocking_dependency: dep.type == 'blocking' && fromTicket.status != 'done' && !fromAssignment.endDate
+late_for_release:   max(assignment.endDate) > release.targetDate (per ticket con releaseId)
+overallocation:     sum(assigned_minutes_per_day) > net_capacity_per_day
 ```
 
 ## Convenzione unità di misura

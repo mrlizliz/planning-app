@@ -44,9 +44,11 @@ packages/shared/
 │   │   ├── capacity.ts         ← calculateDailyCapacity, applyAllocation, calculateDurationDays,
 │   │   │                          getMeetingMinutesForDay, isOverallocated
 │   │   ├── scheduler.ts        ← autoSchedule, scheduleDayByDay (day-by-day con capacità reale)
-│   │   ├── jira-mapper.ts      ← mapJiraIssueToTicket, mapJiraIssuesToTickets
+│   │   ├── jira-mapper.ts      ← mapJiraIssueToTicket, mapJiraIssuesToTickets, mapJiraLinksToDependencies
 │   │   ├── outlook-mapper.ts   ← filterOutlookEvents, mapEventsToCapacityBlocks, aggregateCapacityByDay
-│   │   └── release-planning.ts ← calculateMilestoneStatus, calculateReleaseForecast, deploy/gate logic
+│   │   ├── release-planning.ts ← calculateMilestoneStatus, calculateReleaseForecast, deploy/gate logic
+│   │   ├── dependency-graph.ts ← detectCycles, topologicalSort, getImpactedTickets, getPredecessors, getSuccessors
+│   │   └── alerts.ts           ← generateAlerts (missing_estimate, dependency_cycle, blocking, late_for_release, overallocation)
 │   └── validators/             ← Zod schemas per ogni entità
 │       └── index.ts            ← Tutti i validatori (userSchema, ticketSchema, ecc.)
 ├── tests/
@@ -58,6 +60,8 @@ packages/shared/
 │       ├── jira-mapper.test.ts ← Test T1-U01…U03 (mapping, warning, batch)
 │       ├── capacity-real.test.ts ← Test T2-U01…U14 (capacità reale, Outlook filtri)
 │       └── release-planning.test.ts ← Test T3-U01…U10 (milestone, release, deploy, gate)
+│       ├── dependency-graph.test.ts ← Test T4-U01…U10 (cicli, topo sort, impact, deps nello scheduler)
+│       └── alerts.test.ts      ← Test T4-U11…U13 (missing_estimate, cycle, blocking, late, overallocation)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -92,6 +96,19 @@ packages/shared/
 | `canStartQA(devAssignment)` | `release-planning.ts` | Gate: DEV completato prima di QA |
 | `isReadyForRelease(qaAssignment, ...)` | `release-planning.ts` | Gate: QA completato + buffer rispettato |
 
+### Funzioni scheduling aggiunte in Release 4
+
+| Funzione | File | Descrizione |
+|----------|------|-------------|
+| `detectCycles(deps)` | `dependency-graph.ts` | Rileva cicli nel grafo delle dipendenze (DFS) |
+| `topologicalSort(ticketIds, deps)` | `dependency-graph.ts` | Ordinamento topologico — Kahn's algorithm |
+| `getImpactedTickets(ticketId, deps)` | `dependency-graph.ts` | Impact analysis: ticket a valle (transitivo) |
+| `getPredecessors(ticketId, deps)` | `dependency-graph.ts` | Predecessori diretti di un ticket |
+| `getSuccessors(ticketId, deps)` | `dependency-graph.ts` | Successori diretti di un ticket |
+| `getImplicitDevQaDependencies(assignments)` | `dependency-graph.ts` | Dipendenze implicite DEV→QA |
+| `generateAlerts(input)` | `alerts.ts` | Genera alert intelligenti per lo stato della pianificazione |
+| `mapJiraLinksToDependencies(issues, map)` | `jira-mapper.ts` | Mappa issuelinks Jira a Dependency interne |
+
 ## Pacchetto: @planning/backend
 
 ```
@@ -109,13 +126,15 @@ packages/backend/
 │       ├── calendar.ts       ← Holidays, exceptions, absences, meetings
 │       ├── scheduler.ts      ← Trigger auto-scheduling
 │       ├── capacity.ts       ← GET breakdown giornaliero per utente
-│       └── releases.ts       ← CRUD milestone, release, deploy days/windows
+│       ├── releases.ts       ← CRUD milestone, release, deploy days/windows
+│       └── dependencies.ts   ← CRUD dipendenze + impact analysis
 ├── data/
 │   └── store.json            ← 💾 Dati persistenti (in .gitignore)
 ├── tests/
 │   ├── api.test.ts           ← Integration test API (T1-I01…I04)
 │   ├── capacity.test.ts      ← Integration test capacità (T2-I01…I04)
-│   └── releases.test.ts      ← Integration test release (T3-I01…I04)
+│   ├── releases.test.ts      ← Integration test release (T3-I01…I04)
+│   └── dependencies.test.ts  ← Integration test dipendenze (T4-I01…I04)
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -151,7 +170,8 @@ packages/frontend/
 │       ├── GanttTimeline.vue       ← Timeline settimanale
 │       ├── TicketTable.vue         ← Tabella ticket con badge
 │       ├── JiraSyncDialog.vue      ← Dialog import Jira
-│       └── OverallocationBanner.vue← Alert sovrallocazione
+│       ├── OverallocationBanner.vue← Alert sovrallocazione
+│       └── AlertsBanner.vue        ← Alert intelligenti (dipendenze, stime, ritardi)
 ├── env.d.ts
 ├── package.json
 ├── tsconfig.json

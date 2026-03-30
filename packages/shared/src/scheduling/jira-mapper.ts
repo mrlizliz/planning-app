@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { Ticket, JiraPriority, TicketWarning } from '../types/ticket.js'
+import type { Dependency, DependencyType } from '../types/dependency.js'
 
 /** Genera un ID univoco semplice (senza dipendenza da crypto globale) */
 function generateId(): string {
@@ -35,6 +36,15 @@ export interface JiraIssue {
     parent?: {
       key?: string | null
     } | null
+    issuelinks?: Array<{
+      type: {
+        name: string
+        inward?: string
+        outward?: string
+      }
+      inwardIssue?: { key: string } | null
+      outwardIssue?: { key: string } | null
+    }> | null
   }
 }
 
@@ -151,5 +161,94 @@ export function mapJiraIssuesToTickets(
   })
 }
 
+// ---- Jira Issuelinks → Dependencies ----
 
+/** Mappa dei tipi di link Jira comuni → tipo di dipendenza interno */
+const JIRA_LINK_TYPE_MAP: Record<string, DependencyType> = {
+  blocks: 'blocking',
+  'is blocked by': 'blocking',
+  'is depended on by': 'finish_to_start',
+  'depends on': 'finish_to_start',
+  clones: 'parallel',
+  'is cloned by': 'parallel',
+  relates: 'parallel',
+  'is related to': 'parallel',
+}
 
+/**
+ * Mappa issuelinks da Jira a Dependency interne.
+ * Usa la mappa jiraKey→ticketId per risolvere i riferimenti.
+ *
+ * @param issues - Issue Jira con issuelinks
+ * @param jiraKeyToTicketId - Mappa jiraKey → id ticket interno
+ * @returns Array di Dependency create dalle issuelinks
+ */
+export function mapJiraLinksToDependencies(
+  issues: JiraIssue[],
+  jiraKeyToTicketId: Map<string, string>,
+): Dependency[] {
+  const dependencies: Dependency[] = []
+  const seen = new Set<string>() // evita duplicati
+
+  for (const issue of issues) {
+    const fromId = jiraKeyToTicketId.get(issue.key)
+    if (!fromId) continue
+
+    for (const link of issue.fields.issuelinks ?? []) {
+      // Outward: questo ticket → altro ticket
+      if (link.outwardIssue) {
+        const toKey = link.outwardIssue.key
+        const toId = jiraKeyToTicketId.get(toKey)
+        if (!toId) continue
+
+        const linkName = link.type.outward?.toLowerCase() ?? link.type.name.toLowerCase()
+        const type = JIRA_LINK_TYPE_MAP[linkName] ?? 'finish_to_start'
+        const key = `${fromId}->${toId}`
+
+        if (!seen.has(key)) {
+          seen.add(key)
+          dependencies.push({
+            id: generateId(),
+            fromTicketId: fromId,
+            toTicketId: toId,
+            type,
+            importedFromJira: true,
+            createdAt: new Date().toISOString(),
+          })
+        }
+      }
+
+      // Inward: altro ticket → questo ticket
+      if (link.inwardIssue) {
+        const otherKey = link.inwardIssue.key
+        const otherId = jiraKeyToTicketId.get(otherKey)
+        if (!otherId) continue
+
+        const linkName = link.type.inward?.toLowerCase() ?? link.type.name.toLowerCase()
+        const type = JIRA_LINK_TYPE_MAP[linkName] ?? 'finish_to_start'
+
+        // Determina direzione: "is blocked by" → l'altro blocca questo
+        const isInward = linkName.startsWith('is ')
+        const [actualFrom, actualTo] = isInward
+          ? [otherId, fromId]
+          : [fromId, otherId]
+
+        const key = `${actualFrom}->${actualTo}`
+
+        if (!seen.has(key)) {
+          seen.add(key)
+          dependencies.push({
+            id: generateId(),
+            fromTicketId: actualFrom,
+            toTicketId: actualTo,
+            type,
+            importedFromJira: true,
+            createdAt: new Date().toISOString(),
+          })
+        }
+      }
+    }
+  }
+
+  return dependencies
+}

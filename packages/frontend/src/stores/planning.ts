@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Assignment } from '@planning/shared'
-import { assignmentsApi, schedulerApi } from '../api/client.js'
+import type { Assignment, Dependency, PlanningAlert } from '@planning/shared'
+import { assignmentsApi, schedulerApi, dependenciesApi } from '../api/client.js'
 
 export const usePlanningStore = defineStore('planning', () => {
   const assignments = ref<Assignment[]>([])
+  const dependencies = ref<Dependency[]>([])
+  const alerts = ref<PlanningAlert[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
   const lastScheduleResult = ref<any>(null)
@@ -44,12 +46,42 @@ export const usePlanningStore = defineStore('planning', () => {
     }
   }
 
+  async function fetchDependencies() {
+    try {
+      dependencies.value = await dependenciesApi.list()
+    } catch (e) {
+      error.value = (e as Error).message
+    }
+  }
+
+  async function createDependency(dep: Dependency) {
+    try {
+      const created = await dependenciesApi.create(dep)
+      dependencies.value.push(created)
+      return created
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    }
+  }
+
+  async function deleteDependency(id: string) {
+    try {
+      await dependenciesApi.delete(id)
+      dependencies.value = dependencies.value.filter((d) => d.id !== id)
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    }
+  }
+
   async function runScheduler(planningStartDate?: string) {
     loading.value = true
     error.value = null
     try {
       const result = await schedulerApi.run(planningStartDate)
       lastScheduleResult.value = result
+      alerts.value = result.alerts ?? []
       await fetchAssignments() // Ricarica con date aggiornate
       return result
     } catch (e) {
@@ -70,15 +102,19 @@ export const usePlanningStore = defineStore('planning', () => {
 
   return {
     assignments,
+    dependencies,
+    alerts,
     loading,
     error,
     lastScheduleResult,
     fetchAssignments,
+    fetchDependencies,
     createAssignment,
     updateAssignment,
+    createDependency,
+    deleteDependency,
     runScheduler,
     getAssignmentsForTicket,
     getAssignmentsForUser,
   }
 })
-
