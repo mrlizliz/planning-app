@@ -166,7 +166,7 @@ packages/backend/
 
 **Persistenza:** I dati vengono salvati su `data/store.json` (debounce 200ms) dopo ogni scrittura riuscita. Al riavvio, il file viene ricaricato. In futuro verrà sostituito con Prisma + PostgreSQL.
 
-**JiraClient:** HTTP client con Basic Auth, retry automatico (1 tentativo), gestione errori (401/403 non retryabili).
+**JiraClient:** HTTP client con Basic Auth, retry automatico (1 tentativo), paginazione cursor-based (nextPageToken) con deduplicazione, gestione errori (401/403 non retryabili).
 
 ## Pacchetto: @planning/frontend
 
@@ -191,8 +191,11 @@ packages/frontend/
 │   │   ├── ReleasesView.vue   ← Milestone, release, deploy days/windows
 │   │   └── SettingsView.vue   ← Gestione team + festivi
 │   └── components/
-│       ├── GanttTimeline.vue       ← Timeline settimanale
-│       ├── TicketTable.vue         ← Tabella ticket con badge
+│       ├── GanttTimeline.vue       ← Timeline settimanale con allocazione %, drag & drop, festivi
+│       ├── TicketTable.vue         ← Tabella ticket con paginazione, badge, jiraStatus
+│       ├── AssignTicketDialog.vue  ← Dialog per assegnare un ticket a un utente
+│       ├── AssignmentDetailDialog.vue ← Dialog dettaglio assignment (modifica, elimina)
+│       ├── CreateTicketDialog.vue  ← Dialog per creare ticket manuali
 │       ├── JiraSyncDialog.vue      ← Dialog import Jira
 │       ├── OverallocationBanner.vue← Alert sovrallocazione
 │       └── AlertsBanner.vue        ← Alert intelligenti (dipendenze, stime, ritardi)

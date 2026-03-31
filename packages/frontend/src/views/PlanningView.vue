@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
+import { onMounted, computed, ref } from 'vue'
 import { useTicketsStore } from '../stores/tickets.js'
 import { usePlanningStore } from '../stores/planning.js'
 import { useUsersStore } from '../stores/users.js'
@@ -7,12 +7,34 @@ import { useNotifications } from '../composables/useNotifications.js'
 import GanttTimeline from '../components/GanttTimeline.vue'
 import OverallocationBanner from '../components/OverallocationBanner.vue'
 import AlertsBanner from '../components/AlertsBanner.vue'
+import AssignTicketDialog from '../components/AssignTicketDialog.vue'
+import AssignmentDetailDialog from '../components/AssignmentDetailDialog.vue'
+import type { Assignment, Holiday, Absence } from '@planning/shared'
 import { addDays, format, parseISO } from 'date-fns'
+import { calendarApi, absencesApi } from '../api/client.js'
 
 const ticketsStore = useTicketsStore()
 const planningStore = usePlanningStore()
 const usersStore = useUsersStore()
 const { showSuccess, showError, handleApiError } = useNotifications()
+
+const holidays = ref<Holiday[]>([])
+const absences = ref<Absence[]>([])
+
+const showAssignDialog = ref(false)
+const showDetailDialog = ref(false)
+const detailAssignmentId = ref<string | null>(null)
+
+const detailAssignment = computed(() =>
+  detailAssignmentId.value
+    ? planningStore.assignments.find((a) => a.id === detailAssignmentId.value) ?? null
+    : null,
+)
+const detailTicket = computed(() =>
+  detailAssignment.value
+    ? ticketsStore.tickets.find((t) => t.id === detailAssignment.value!.ticketId) ?? null
+    : null,
+)
 
 onMounted(async () => {
   await Promise.all([
@@ -20,6 +42,8 @@ onMounted(async () => {
     planningStore.fetchAssignments(),
     planningStore.fetchDependencies(),
     usersStore.fetchUsers(),
+    calendarApi.holidays.list().then((h) => (holidays.value = h)),
+    absencesApi.list().then((a) => (absences.value = a)),
   ])
 })
 
@@ -48,11 +72,58 @@ async function handleAssignmentMoved(payload: { assignmentId: string; newStartDa
     await planningStore.updateAssignment(payload.assignmentId, {
       startDate: payload.newStartDate,
       endDate: newEndDate,
-      locked: true, // Lock automatico dopo drag manuale
     })
     showSuccess('Assignment spostato', `Nuova data: ${payload.newStartDate}`)
   } catch (e) {
     handleApiError(e, 'Spostamento assignment')
+  }
+}
+
+async function handleAssignTicket(assignment: Assignment) {
+  try {
+    await planningStore.createAssignment(assignment)
+    await ticketsStore.fetchTickets()
+    showAssignDialog.value = false
+    showSuccess('Ticket assegnato e schedulato')
+  } catch (e) {
+    handleApiError(e, 'Assegnazione ticket')
+  }
+}
+
+async function handleToggleLock(assignmentId: string) {
+  try {
+    const assignment = planningStore.assignments.find((a) => a.id === assignmentId)
+    if (!assignment) return
+    const newLocked = !assignment.locked
+    await planningStore.updateAssignment(assignmentId, { locked: newLocked })
+    showSuccess(newLocked ? 'Assignment bloccato' : 'Assignment sbloccato')
+  } catch (e) {
+    handleApiError(e, 'Toggle lock')
+  }
+}
+
+function handleOpenDetail(assignmentId: string) {
+  detailAssignmentId.value = assignmentId
+  showDetailDialog.value = true
+}
+
+async function handleUpdateAssignment(assignmentId: string, data: Partial<Assignment>) {
+  try {
+    await planningStore.updateAssignment(assignmentId, data)
+    showDetailDialog.value = false
+    showSuccess('Assignment aggiornato')
+  } catch (e) {
+    handleApiError(e, 'Aggiornamento assignment')
+  }
+}
+
+async function handleDeleteAssignment(assignmentId: string) {
+  try {
+    await planningStore.deleteAssignment(assignmentId)
+    showDetailDialog.value = false
+    showSuccess('Assignment rimosso dal Gantt')
+  } catch (e) {
+    handleApiError(e, 'Eliminazione assignment')
   }
 }
 </script>
@@ -63,12 +134,12 @@ async function handleAssignmentMoved(payload: { assignmentId: string; newStartDa
       <h2>📅 Planning</h2>
       <div class="header-actions">
         <button
-          class="btn btn-primary"
-          :disabled="planningStore.loading || !hasData"
-          @click="handleRunScheduler"
+          class="btn btn-secondary"
+          :disabled="!hasData"
+          @click="showAssignDialog = true"
         >
-          <i class="pi pi-refresh" />
-          {{ planningStore.loading ? 'Scheduling...' : 'Auto-Schedule' }}
+          <i class="pi pi-user-plus" />
+          Assegna Ticket
         </button>
       </div>
     </div>
@@ -95,7 +166,30 @@ async function handleAssignmentMoved(payload: { assignmentId: string; newStartDa
       :tickets="ticketsStore.tickets"
       :assignments="planningStore.assignments"
       :users="usersStore.users"
+      :holidays="holidays"
+      :absences="absences"
       @assignment-moved="handleAssignmentMoved"
+      @toggle-lock="handleToggleLock"
+      @open-detail="handleOpenDetail"
+    />
+
+    <AssignTicketDialog
+      :visible="showAssignDialog"
+      :tickets="ticketsStore.tickets"
+      :assignments="planningStore.assignments"
+      :users="usersStore.users"
+      @close="showAssignDialog = false"
+      @created="handleAssignTicket"
+    />
+
+    <AssignmentDetailDialog
+      :visible="showDetailDialog"
+      :assignment="detailAssignment"
+      :ticket="detailTicket"
+      :users="usersStore.users"
+      @close="showDetailDialog = false"
+      @update="handleUpdateAssignment"
+      @delete="handleDeleteAssignment"
     />
   </div>
 </template>
@@ -139,6 +233,13 @@ async function handleAssignmentMoved(payload: { assignmentId: string; newStartDa
 }
 .btn-primary:hover:not(:disabled) {
   background: #3a56d4;
+}
+.btn-secondary {
+  background: #e9ecef;
+  color: #333;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: #dee2e6;
 }
 .empty-state {
   display: flex;

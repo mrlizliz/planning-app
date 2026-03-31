@@ -22,7 +22,7 @@ function makeTicket(id: string, estimate: number | null = 480): Ticket {
     priorityOverride: null,
     status: 'backlog',
     phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null,
     releaseId: null,

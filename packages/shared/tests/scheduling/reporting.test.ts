@@ -28,7 +28,7 @@ function makeTicket(id: string, releaseId: string | null = null): Ticket {
     priorityOverride: null,
     status: 'planned',
     phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null,
     releaseId,

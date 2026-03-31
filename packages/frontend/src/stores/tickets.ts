@@ -24,6 +24,17 @@ export const useTicketsStore = defineStore('tickets', () => {
     }
   }
 
+  async function createTicket(ticket: Ticket) {
+    try {
+      const created = await ticketsApi.create(ticket)
+      tickets.value.push(created)
+      return created
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    }
+  }
+
   async function updateTicket(id: string, data: Partial<Ticket>) {
     try {
       const updated = await ticketsApi.update(id, data)
@@ -66,6 +77,7 @@ export const useTicketsStore = defineStore('tickets', () => {
     plannedTickets,
     ticketCount,
     fetchTickets,
+    createTicket,
     updateTicket,
     deleteTicket,
     syncFromJira,

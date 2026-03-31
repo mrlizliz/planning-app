@@ -7,7 +7,8 @@ import { useNotifications } from '../composables/useNotifications.js'
 import { jiraApi, milestonesApi, releasesApi } from '../api/client.js'
 import TicketTable from '../components/TicketTable.vue'
 import JiraSyncDialog from '../components/JiraSyncDialog.vue'
-import type { Milestone, Release } from '@planning/shared'
+import CreateTicketDialog from '../components/CreateTicketDialog.vue'
+import type { Milestone, Release, Ticket } from '@planning/shared'
 
 const ticketsStore = useTicketsStore()
 const planningStore = usePlanningStore()
@@ -15,10 +16,10 @@ const usersStore = useUsersStore()
 const { showSuccess, handleApiError } = useNotifications()
 
 const showSyncDialog = ref(false)
+const showCreateDialog = ref(false)
 const jiraBaseUrl = ref('')
 const fixVersionFilter = ref('')
 const statusFilter = ref('')
-const priorityFilter = ref('')
 const searchQuery = ref('')
 
 const milestones = ref<Milestone[]>([])
@@ -35,6 +36,25 @@ const allFixVersions = computed(() => {
   return [...set].sort()
 })
 
+// Calcola lista unica di stati Jira presenti nei ticket
+const allJiraStatuses = computed(() => {
+  const set = new Set<string>()
+  for (const t of ticketsStore.tickets) {
+    if (t.jiraStatus) set.add(t.jiraStatus)
+  }
+  return [...set].sort()
+})
+
+// Conteggi per stats bar (basati su jiraStatus)
+const statusCounts = computed(() => {
+  const counts: Record<string, number> = {}
+  for (const t of ticketsStore.tickets) {
+    const s = t.jiraStatus ?? 'N/A'
+    counts[s] = (counts[s] ?? 0) + 1
+  }
+  return counts
+})
+
 // Ticket filtrati con tutti i filtri
 const filteredTickets = computed(() => {
   let result = ticketsStore.tickets
@@ -43,10 +63,7 @@ const filteredTickets = computed(() => {
     result = result.filter((t) => (t.fixVersions ?? []).includes(fixVersionFilter.value))
   }
   if (statusFilter.value) {
-    result = result.filter((t) => t.status === statusFilter.value)
-  }
-  if (priorityFilter.value) {
-    result = result.filter((t) => t.jiraPriority === priorityFilter.value)
+    result = result.filter((t) => t.jiraStatus === statusFilter.value)
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
@@ -77,6 +94,16 @@ async function updateTicketRelease(ticketId: string, releaseId: string | null) {
   }
 }
 
+async function handleCreateTicket(ticket: Ticket) {
+  try {
+    await ticketsStore.createTicket(ticket)
+    showCreateDialog.value = false
+    showSuccess('Ticket creato')
+  } catch (e) {
+    handleApiError(e, 'Creazione ticket')
+  }
+}
+
 onMounted(async () => {
   await Promise.all([
     ticketsStore.fetchTickets(),
@@ -102,6 +129,9 @@ onMounted(async () => {
         <button class="btn btn-secondary" @click="ticketsStore.fetchTickets()">
           <i class="pi pi-refresh" /> Aggiorna
         </button>
+        <button class="btn btn-primary" @click="showCreateDialog = true">
+          <i class="pi pi-plus" /> Nuovo Ticket
+        </button>
         <button class="btn btn-primary" @click="showSyncDialog = true">
           <i class="pi pi-cloud-download" /> Importa da Jira
         </button>
@@ -113,13 +143,9 @@ onMounted(async () => {
         <span class="stat-value">{{ ticketsStore.ticketCount }}</span>
         <span class="stat-label">Totali</span>
       </div>
-      <div class="stat">
-        <span class="stat-value">{{ ticketsStore.backlogTickets.length }}</span>
-        <span class="stat-label">Backlog</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value">{{ ticketsStore.plannedTickets.length }}</span>
-        <span class="stat-label">Pianificati</span>
+      <div v-for="(count, status) in statusCounts" :key="status" class="stat">
+        <span class="stat-value">{{ count }}</span>
+        <span class="stat-label">{{ status }}</span>
       </div>
     </div>
 
@@ -132,18 +158,7 @@ onMounted(async () => {
       />
       <select v-model="statusFilter" class="filter-select">
         <option value="">Tutti gli stati</option>
-        <option value="backlog">Backlog</option>
-        <option value="planned">Pianificato</option>
-        <option value="in_progress">In Corso</option>
-        <option value="done">Completato</option>
-      </select>
-      <select v-model="priorityFilter" class="filter-select">
-        <option value="">Tutte le priorità</option>
-        <option value="highest">Highest</option>
-        <option value="high">High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
-        <option value="lowest">Lowest</option>
+        <option v-for="s in allJiraStatuses" :key="s" :value="s">{{ s }}</option>
       </select>
       <select v-if="allFixVersions.length > 0" v-model="fixVersionFilter" class="filter-select">
         <option value="">Tutte le version</option>
@@ -166,6 +181,12 @@ onMounted(async () => {
       :visible="showSyncDialog"
       @close="showSyncDialog = false"
       @synced="ticketsStore.fetchTickets()"
+    />
+
+    <CreateTicketDialog
+      :visible="showCreateDialog"
+      @close="showCreateDialog = false"
+      @created="handleCreateTicket"
     />
   </div>
 </template>

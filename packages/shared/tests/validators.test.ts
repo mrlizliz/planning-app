@@ -45,6 +45,7 @@ const validTicket = {
   phase: 'dev',
   jiraAssigneeEmail: 'dev@example.com',
   jiraAssigneeName: 'Dev User',
+  jiraStatus: 'To Do',
   parentKey: null, fixVersions: [],
   milestoneId: null,
   releaseId: null,

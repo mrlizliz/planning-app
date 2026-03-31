@@ -32,6 +32,13 @@ export interface JiraIssue {
     } | null
     status?: {
       name?: string | null
+      statusCategory?: {
+        name?: string | null
+      } | null
+    } | null
+    /** Campo statusCategory top-level (alcune API Jira lo restituiscono separato) */
+    statuscategory?: {
+      name?: string | null
     } | null
     parent?: {
       key?: string | null
@@ -109,6 +116,12 @@ export function mapJiraIssueToTicket(
   // Fix versions
   const fixVersions = (issue.fields.fixVersions ?? []).map((v) => v.name)
 
+  // Stato Jira (statusCategory: "To Do", "In Progress", "Done")
+  const jiraStatus = issue.fields.status?.statusCategory?.name
+    ?? issue.fields.statuscategory?.name
+    ?? issue.fields.status?.name
+    ?? null
+
   // Priorità
   const rawPriority = issue.fields.priority?.name?.toLowerCase() ?? 'medium'
   const jiraPriority: JiraPriority = JIRA_PRIORITY_MAP[rawPriority] ?? 'medium'
@@ -128,6 +141,7 @@ export function mapJiraIssueToTicket(
     phase: 'dev',
     jiraAssigneeEmail: assigneeEmail,
     jiraAssigneeName: assigneeName,
+    jiraStatus,
     parentKey: issue.fields.parent?.key ?? null,
     fixVersions,
     milestoneId: null,

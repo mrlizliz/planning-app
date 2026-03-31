@@ -4,15 +4,18 @@
 
 ## Regola AI
 
-> ⚠️ **Dopo ogni release, creare o aggiornare i file markdown di contesto:**
+> ⚠️ **Dopo ogni release o batch di modifiche, SEMPRE aggiornare i file markdown di contesto:**
 > - `AI_CONTEXT.md` — stato attuale del progetto
 > - `docs/ARCHITECTURE.md` — struttura e decisioni tecniche
 > - `docs/DOMAIN_MODEL.md` — entità e regole di business
 > - `docs/RELEASE_LOG.md` — storico delle release
+> - `docs/NEXT_FEATURES.md` — checklist feature (spuntare completate, aggiungere nuove)
 > - `docs/CONVENTIONS.md` — questo file
 >
-> Fare **sempre** riferimento a `jira-planning-roadmap.md` per la struttura
-> dei file, delle cartelle, le feature previste e i test plan.
+> **Questa regola è OBBLIGATORIA.** Non chiudere mai un task senza aver verificato
+> che la documentazione sia allineata al codice. Fare **sempre** riferimento a
+> `jira-planning-roadmap.md` per la struttura dei file, delle cartelle, le feature
+> previste e i test plan.
 
 ## Linguaggi e formattazione
 

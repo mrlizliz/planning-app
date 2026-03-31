@@ -20,6 +20,15 @@ export interface JiraSearchResult {
   startAt: number
 }
 
+/** Risposta raw dall'endpoint GET /rest/api/3/search/jql */
+interface JiraSearchPageResponse {
+  issues: JiraIssue[]
+  total?: number
+  maxResults?: number
+  /** Token per la pagina successiva. Assente/null = ultima pagina. */
+  nextPageToken?: string | null
+}
+
 export class JiraClientError extends Error {
   constructor(
     message: string,
@@ -35,7 +44,8 @@ export class JiraClientError extends Error {
  * Client per le API REST di Jira.
  *
  * Supporta:
- * - Ricerca ticket con JQL
+ * - Ricerca ticket con JQL (GET /rest/api/3/search/jql — cursor-based pagination)
+ * - Paginazione automatica con nextPageToken
  * - Retry automatico (1 tentativo)
  * - Gestione errori HTTP (401, 403, 500)
  */
@@ -51,6 +61,8 @@ export class JiraClient {
   /**
    * Cerca ticket Jira usando JQL con paginazione automatica.
    *
+   * Usa GET /rest/api/3/search/jql con cursor-based pagination (nextPageToken).
+   *
    * @param jql - Query JQL (es. "project = PROJ ORDER BY priority DESC")
    * @param maxResults - Numero massimo di risultati per pagina (default: 100)
    * @param fetchAll - Se true, pagina automaticamente per ottenere tutti i risultati
@@ -64,30 +76,73 @@ export class JiraClient {
       'assignee',
       'priority',
       'status',
+      'statuscategory',
       'parent',
       'issuelinks',
       'fixVersions',
-    ].join(',')
+    ]
+
+    const MAX_PAGES = 200 // safety limit: 200 × 100 = 20 000 issues max
 
     let allIssues: JiraIssue[] = []
-    let startAt = 0
-    let total = 0
+    const seenKeys = new Set<string>()
+    let nextPageToken: string | null | undefined = undefined
+    let serverTotal = 0
+    let page = 0
 
     do {
-      const url = `${this.baseUrl}/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&startAt=${startAt}&fields=${fields}`
-      const response = await this.fetchWithRetry(url) as JiraSearchResult
+      // Costruisci URL con query params — ogni field come parametro separato
+      const params = new URLSearchParams()
+      params.set('jql', jql)
+      params.set('maxResults', String(maxResults))
+      for (const f of fields) {
+        params.append('fields', f)
+      }
+      if (nextPageToken) {
+        params.set('nextPageToken', nextPageToken)
+      }
 
-      allIssues = allIssues.concat(response.issues)
-      total = response.total
-      startAt += response.issues.length
+      const url = `${this.baseUrl}/rest/api/3/search/jql?${params.toString()}`
+      const response = await this.fetchWithRetry(url) as JiraSearchPageResponse
 
-      // Se non serve paginazione completa o non ci sono più risultati, esci
-      if (!fetchAll || allIssues.length >= total || response.issues.length === 0) break
+      if (response.total != null && response.total > 0) {
+        serverTotal = response.total
+      }
+
+      // Deduplica per sicurezza
+      let newCount = 0
+      for (const issue of response.issues) {
+        if (!seenKeys.has(issue.key)) {
+          seenKeys.add(issue.key)
+          allIssues.push(issue)
+          newCount++
+        }
+      }
+
+      nextPageToken = response.nextPageToken
+      page++
+
+      console.log(`📄 Jira page ${page}: fetched ${response.issues.length} (${newCount} new), total so far: ${allIssues.length}${serverTotal ? `, server total: ${serverTotal}` : ''}${nextPageToken ? ', has next page' : ', last page'}`)
+
+      if (!fetchAll) break
+      // Pagina vuota → fine
+      if (response.issues.length === 0) break
+      // Nessun issue nuovo nella pagina → stop
+      if (newCount === 0) break
+      // Nessun nextPageToken → ultima pagina
+      if (!nextPageToken) break
+      // Safety limit
+      if (page >= MAX_PAGES) {
+        console.warn(`⚠️ Jira pagination: raggiunto il limite di sicurezza di ${MAX_PAGES} pagine (${allIssues.length} issues). Interruzione.`)
+        break
+      }
     } while (true)
+
+    console.log(`✅ Jira sync completato: ${allIssues.length} issues in ${page} pagine (server total: ${serverTotal})`)
 
     return {
       issues: allIssues,
-      total,
+      total: serverTotal || allIssues.length,
       maxResults,
       startAt: 0,
     }
@@ -121,19 +176,17 @@ export class JiraClient {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        console.log(`🔗 Jira API request [attempt ${attempt + 1}]: ${url.split('?')[0]}...`)
+        console.log(`🔗 Jira API GET [attempt ${attempt + 1}]: ${url.split('?')[0]}...`)
         const response = await fetch(url, {
           method: 'GET',
           headers: {
             Authorization: this.authHeader,
             Accept: 'application/json',
-            'Content-Type': 'application/json',
           },
         })
 
         if (!response.ok) {
           const body = await response.text().catch(() => '')
-          // Prova a estrarre un messaggio leggibile dal JSON di errore Jira
           let jiraMessage = body
           try {
             const parsed = JSON.parse(body)
@@ -157,12 +210,10 @@ export class JiraClient {
       } catch (error) {
         lastError = error as Error
         if (error instanceof JiraClientError) {
-          // Non fare retry per errori di autenticazione
           if (error.statusCode === 401 || error.statusCode === 403) {
             throw error
           }
         }
-        // Aspetta prima del retry
         if (attempt < retries) {
           await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
         }

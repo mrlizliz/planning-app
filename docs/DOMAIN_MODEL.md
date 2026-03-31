@@ -75,7 +75,10 @@ Ticket importato da Jira con stime e metadati.
 | `status` | TicketStatus | `backlog \| planned \| in_progress \| done` |
 | `phase` | TicketPhase | `dev \| qa` |
 | `jiraAssigneeEmail` | string \| null | Assignee originale da Jira |
+| `jiraAssigneeName` | string \| null | Nome visualizzato assignee Jira |
+| `jiraStatus` | string \| null | Stato originale su Jira (es. "To Do", "In Progress", "Done") |
 | `parentKey` | string \| null | Epic o parent Jira |
+| `fixVersions` | string[] | Fix versions da Jira |
 | `milestoneId` | string \| null | FK → Milestone |
 | `releaseId` | string \| null | FK → Release |
 | `locked` | boolean | Se true, non viene ricalcolato |

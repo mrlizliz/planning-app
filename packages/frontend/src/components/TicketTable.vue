@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, Teleport } from 'vue'
+import { ref, computed, watch, Teleport } from 'vue'
 import type { Ticket, Milestone, Release } from '@planning/shared'
 
 const props = defineProps<{
@@ -16,9 +16,19 @@ const emit = defineEmits<{
   (e: 'update-release', ticketId: string, releaseId: string | null): void
 }>()
 
+// ---- Pagination ----
+
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 0] as const  // 0 = tutti
+const pageSize = ref(25)
+const currentPage = ref(1)
+
+// Reset alla pagina 1 quando cambiano i ticket (filtri) o il pageSize
+watch(() => props.tickets.length, () => { currentPage.value = 1 })
+watch(pageSize, () => { currentPage.value = 1 })
+
 // ---- Sorting ----
 
-type SortKey = 'jiraKey' | 'summary' | 'jiraPriority' | 'estimateMinutes' | 'status' | 'phase' | 'jiraAssigneeName' | 'fixVersions' | 'warnings'
+type SortKey = 'jiraKey' | 'summary' | 'jiraAssigneeName' | 'estimateMinutes' | 'status' | 'fixVersions' | 'warnings'
 const sortKey = ref<SortKey>('jiraKey')
 const sortAsc = ref(true)
 
@@ -53,10 +63,8 @@ const sortedTickets = computed(() => {
         break
       }
       case 'summary': cmp = a.summary.localeCompare(b.summary); break
-      case 'jiraPriority': cmp = (PRIORITY_ORDER[a.jiraPriority] ?? 3) - (PRIORITY_ORDER[b.jiraPriority] ?? 3); break
       case 'estimateMinutes': cmp = (a.estimateMinutes ?? -1) - (b.estimateMinutes ?? -1); break
-      case 'status': cmp = a.status.localeCompare(b.status); break
-      case 'phase': cmp = a.phase.localeCompare(b.phase); break
+      case 'status': cmp = (a.jiraStatus ?? '').localeCompare(b.jiraStatus ?? ''); break
       case 'jiraAssigneeName': cmp = (a.jiraAssigneeName ?? '').localeCompare(b.jiraAssigneeName ?? ''); break
       case 'fixVersions': cmp = (a.fixVersions?.[0] ?? '').localeCompare(b.fixVersions?.[0] ?? ''); break
       case 'warnings': cmp = (a.warnings?.length ?? 0) - (b.warnings?.length ?? 0); break
@@ -66,9 +74,39 @@ const sortedTickets = computed(() => {
   return list
 })
 
+const totalPages = computed(() => {
+  if (pageSize.value === 0) return 1
+  return Math.max(1, Math.ceil(sortedTickets.value.length / pageSize.value))
+})
+
+const paginatedTickets = computed(() => {
+  if (pageSize.value === 0) return sortedTickets.value
+  const start = (currentPage.value - 1) * pageSize.value
+  return sortedTickets.value.slice(start, start + pageSize.value)
+})
+
+const paginationFrom = computed(() => {
+  if (sortedTickets.value.length === 0) return 0
+  if (pageSize.value === 0) return 1
+  return (currentPage.value - 1) * pageSize.value + 1
+})
+
+const paginationTo = computed(() => {
+  if (pageSize.value === 0) return sortedTickets.value.length
+  return Math.min(currentPage.value * pageSize.value, sortedTickets.value.length)
+})
+
+function goToPage(page: number) {
+  currentPage.value = Math.max(1, Math.min(page, totalPages.value))
+}
+
+function pageSizeLabel(size: number): string {
+  return size === 0 ? 'Tutti' : String(size)
+}
+
 // ---- Warning popover ----
 
-const warningPopover = ref<{ ticketId: string; x: number; y: number } | null>(null)
+const warningPopover = ref<{ ticketId: string; x: number; y: number; right: number } | null>(null)
 
 function warningLabel(w: string): string {
   switch (w) {
@@ -80,7 +118,12 @@ function warningLabel(w: string): string {
 }
 
 function showWarningPopover(ticketId: string, event: MouseEvent) {
-  warningPopover.value = { ticketId, x: event.clientX, y: event.clientY }
+  warningPopover.value = {
+    ticketId,
+    x: event.clientX,
+    y: event.clientY,
+    right: document.documentElement.clientWidth - event.clientX,
+  }
 }
 
 function hideWarningPopover() {
@@ -137,10 +180,8 @@ function formatMinutes(min: number | null): string {
           <th class="sortable" @click="toggleSort('jiraKey')">Key {{ sortIcon('jiraKey') }}</th>
           <th class="sortable" @click="toggleSort('summary')">Summary {{ sortIcon('summary') }}</th>
           <th class="sortable" @click="toggleSort('jiraAssigneeName')">Assignee {{ sortIcon('jiraAssigneeName') }}</th>
-          <th class="sortable" @click="toggleSort('jiraPriority')">Priorità {{ sortIcon('jiraPriority') }}</th>
           <th class="sortable" @click="toggleSort('estimateMinutes')">Stima {{ sortIcon('estimateMinutes') }}</th>
           <th class="sortable" @click="toggleSort('status')">Stato {{ sortIcon('status') }}</th>
-          <th class="sortable" @click="toggleSort('phase')">Fase {{ sortIcon('phase') }}</th>
           <th class="sortable" @click="toggleSort('fixVersions')">Fix Version {{ sortIcon('fixVersions') }}</th>
           <th v-if="milestones?.length">Milestone</th>
           <th v-if="releases?.length">Release</th>
@@ -148,7 +189,7 @@ function formatMinutes(min: number | null): string {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="ticket in sortedTickets" :key="ticket.id">
+        <tr v-for="ticket in paginatedTickets" :key="ticket.id">
           <td class="key-col">
             <a
               :href="jiraUrl(ticket.jiraKey)"
@@ -167,19 +208,11 @@ function formatMinutes(min: number | null): string {
             <span v-if="ticket.jiraAssigneeName" class="assignee">{{ ticket.jiraAssigneeName }}</span>
             <span v-else class="text-muted">—</span>
           </td>
-          <td>
-            <span :class="['badge', priorityBadge(ticket.jiraPriority).class]">
-              {{ priorityBadge(ticket.jiraPriority).label }}
-            </span>
-          </td>
           <td class="estimate-col">{{ formatMinutes(ticket.estimateMinutes) }}</td>
           <td>
-            <span :class="['badge', statusBadge(ticket.status).class]">
-              {{ statusBadge(ticket.status).label }}
+            <span class="badge status-badge">
+              {{ ticket.jiraStatus ?? '—' }}
             </span>
-          </td>
-          <td>
-            <span class="phase-badge">{{ ticket.phase.toUpperCase() }}</span>
           </td>
           <td class="fix-version-col">
             <span v-if="ticket.fixVersions?.length" class="fix-versions">
@@ -221,7 +254,29 @@ function formatMinutes(min: number | null): string {
       </tbody>
     </table>
 
-    <div v-else class="empty">
+    <!-- Pagination bar -->
+    <div v-if="!loading && sortedTickets.length > 0" class="pagination-bar">
+      <div class="pagination-size">
+        <span class="pagination-label">Righe per pagina:</span>
+        <select v-model.number="pageSize" class="pagination-select">
+          <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">
+            {{ pageSizeLabel(size) }}
+          </option>
+        </select>
+      </div>
+      <span class="pagination-info">
+        {{ paginationFrom }}–{{ paginationTo }} di {{ sortedTickets.length }}
+      </span>
+      <div class="pagination-nav">
+        <button class="pagination-btn" :disabled="currentPage <= 1" @click="goToPage(1)" title="Prima pagina">«</button>
+        <button class="pagination-btn" :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)" title="Pagina precedente">‹</button>
+        <span class="pagination-pages">{{ currentPage }} / {{ totalPages }}</span>
+        <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)" title="Pagina successiva">›</button>
+        <button class="pagination-btn" :disabled="currentPage >= totalPages" @click="goToPage(totalPages)" title="Ultima pagina">»</button>
+      </div>
+    </div>
+
+    <div v-else-if="!loading" class="empty">
       Nessun ticket presente.
     </div>
 
@@ -230,7 +285,7 @@ function formatMinutes(min: number | null): string {
       <div
         v-if="warningPopover"
         class="warning-popover"
-        :style="{ top: warningPopover.y + 10 + 'px', left: warningPopover.x + 'px' }"
+        :style="{ top: warningPopover.y + 10 + 'px', right: warningPopover.right + 'px' }"
         @mouseleave="hideWarningPopover"
       >
         <div class="popover-header">
@@ -275,7 +330,7 @@ function formatMinutes(min: number | null): string {
 .summary-col { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assignee-col { white-space: nowrap; font-size: 0.82rem; }
 .assignee { color: #333; }
-.estimate-col { text-align: right; font-variant-numeric: tabular-nums; }
+.estimate-col { font-variant-numeric: tabular-nums; }
 .fix-version-col { white-space: nowrap; }
 .milestone-col, .release-col { white-space: nowrap; }
 .inline-select { padding: 0.2rem 0.3rem; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.75rem; background: var(--bg-input); color: var(--text-primary); outline: none; max-width: 120px; transition: var(--transition-theme); }
@@ -283,6 +338,7 @@ function formatMinutes(min: number | null): string {
 .fv-badge { background: #ede9fe; color: #6d28d9; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-right: 0.2rem; }
 :root.dark .fv-badge { background: #2a2044; color: #a78bfa; }
 .badge { padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
+.status-badge { background: #e9ecef; color: #555; }
 .badge-red { background: #fde8e8; color: #d00000; }
 .badge-orange { background: #fff3e0; color: #e85d04; }
 .badge-blue { background: #e3f2fd; color: #4361ee; }
@@ -305,6 +361,63 @@ function formatMinutes(min: number | null): string {
 .warning-badge { cursor: pointer; font-size: 0.85rem; }
 .text-muted { color: var(--text-muted); }
 .empty { padding: 2rem; text-align: center; color: var(--text-muted); }
+
+/* Pagination */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.25rem;
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid #e9ecef;
+  font-size: 0.8rem;
+  color: var(--text-secondary, #666);
+  flex-wrap: wrap;
+}
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pagination-label { white-space: nowrap; }
+.pagination-select {
+  padding: 0.2rem 0.35rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: var(--bg-input, white);
+  color: var(--text-primary, #333);
+  outline: none;
+}
+.pagination-select:focus { border-color: #4361ee; }
+.pagination-info { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.pagination-pages {
+  min-width: 3.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pagination-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: var(--text-primary, #333);
+  transition: all 0.15s;
+}
+.pagination-btn:hover:not(:disabled) { background: #f0f0f0; border-color: #4361ee; color: #4361ee; }
+.pagination-btn:disabled { opacity: 0.35; cursor: default; }
+:root.dark .pagination-bar { border-top-color: var(--border-color, #333); }
+:root.dark .pagination-select { background: var(--bg-input, #1e1e2e); border-color: var(--border-color, #444); }
+:root.dark .pagination-btn { border-color: var(--border-color, #444); color: var(--text-primary, #ccc); }
+:root.dark .pagination-btn:hover:not(:disabled) { background: #2a2a44; }
 </style>
 
 <style>

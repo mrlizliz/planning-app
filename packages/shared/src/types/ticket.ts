@@ -40,6 +40,8 @@ export interface Ticket {
   jiraAssigneeEmail: string | null
   /** Nome visualizzato dell'assignee Jira */
   jiraAssigneeName: string | null
+  /** Stato originale su Jira (es. "To Do", "In Progress", "Done") */
+  jiraStatus: string | null
   /** Epic o parent key da Jira */
   parentKey: string | null
   /** Fix versions da Jira */

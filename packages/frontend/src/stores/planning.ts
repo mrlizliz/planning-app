@@ -25,9 +25,9 @@ export const usePlanningStore = defineStore('planning', () => {
 
   async function createAssignment(assignment: Assignment) {
     try {
-      const created = await assignmentsApi.create(assignment)
-      assignments.value.push(created)
-      return created
+      await assignmentsApi.create(assignment)
+      // Il backend auto-schedula tutti gli assignment: ricarica la lista completa
+      await fetchAssignments()
     } catch (e) {
       error.value = (e as Error).message
       throw e
@@ -40,6 +40,16 @@ export const usePlanningStore = defineStore('planning', () => {
       const idx = assignments.value.findIndex((a) => a.id === id)
       if (idx !== -1) assignments.value[idx] = updated
       return updated
+    } catch (e) {
+      error.value = (e as Error).message
+      throw e
+    }
+  }
+
+  async function deleteAssignment(id: string) {
+    try {
+      await assignmentsApi.delete(id)
+      assignments.value = assignments.value.filter((a) => a.id !== id)
     } catch (e) {
       error.value = (e as Error).message
       throw e
@@ -111,6 +121,7 @@ export const usePlanningStore = defineStore('planning', () => {
     fetchDependencies,
     createAssignment,
     updateAssignment,
+    deleteAssignment,
     createDependency,
     deleteDependency,
     runScheduler,

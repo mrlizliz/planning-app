@@ -48,7 +48,7 @@ function addTicket(id: string, jiraKey: string, estimateMinutes: number) {
     priorityOverride: null,
     status: 'backlog',
     phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null,
     releaseId: null,

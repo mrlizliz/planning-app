@@ -52,6 +52,7 @@ export const ticketSchema = z.object({
   phase: ticketPhaseSchema,
   jiraAssigneeEmail: z.string().email().nullable(),
   jiraAssigneeName: z.string().nullable(),
+  jiraStatus: z.string().nullable().default(null),
   parentKey: z.string().nullable(),
   fixVersions: z.array(z.string()).default([]),
   milestoneId: z.string().nullable(),

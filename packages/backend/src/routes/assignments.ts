@@ -4,7 +4,9 @@
 
 import type { FastifyInstance } from 'fastify'
 import { getStore } from '../store/index.js'
-import { assignmentSchema } from '@planning/shared'
+import { assignmentSchema, autoSchedule } from '@planning/shared'
+import { buildSchedulerInput } from '../helpers/scheduler-input.js'
+import { format } from 'date-fns'
 
 export async function assignmentRoutes(app: FastifyInstance) {
   const prefix = '/api/assignments'
@@ -55,7 +57,47 @@ export async function assignmentRoutes(app: FastifyInstance) {
     }
 
     store.assignments.set(parsed.data.id, parsed.data)
-    return reply.status(201).send(parsed.data)
+
+    // Schedule solo il nuovo assignment alla prima disponibilità del dev,
+    // partendo da oggi. Gli assignment esistenti con date restano fissi.
+    const input = buildSchedulerInput()
+    // Forza planningStartDate a oggi
+    input.planningStartDate = format(new Date(), 'yyyy-MM-dd')
+    // Tratta tutti gli assignment GIÀ con date come locked → lo scheduler non li sposta
+    input.assignments = input.assignments.map((a) =>
+      a.id === parsed.data.id
+        ? { ...a, locked: false }                              // il nuovo: da schedulare
+        : a.startDate && a.endDate ? { ...a, locked: true } : a // esistenti con date: fissi
+    )
+
+    const result = autoSchedule(input)
+
+    // Aggiorna solo il NUOVO assignment con le date calcolate
+    const scheduledNew = result.scheduled.find((s) => s.assignmentId === parsed.data.id)
+    if (scheduledNew) {
+      const assignment = store.assignments.get(parsed.data.id)!
+      store.assignments.set(parsed.data.id, {
+        ...assignment,
+        startDate: scheduledNew.startDate,
+        endDate: scheduledNew.endDate,
+        durationDays: scheduledNew.durationDays,
+        updatedAt: new Date().toISOString(),
+      })
+
+      // Aggiorna status ticket → planned
+      const ticket = store.tickets.get(parsed.data.ticketId)
+      if (ticket && ticket.status === 'backlog') {
+        store.tickets.set(parsed.data.ticketId, {
+          ...ticket,
+          status: 'planned',
+          updatedAt: new Date().toISOString(),
+        })
+      }
+    }
+
+    // Restituisci l'assignment aggiornato con le date calcolate
+    const updatedAssignment = store.assignments.get(parsed.data.id)!
+    return reply.status(201).send(updatedAssignment)
   })
 
   // PUT /api/assignments/:id — Override manuale (date, allocazione, locked)

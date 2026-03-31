@@ -1,7 +1,7 @@
 # Prossime Feature — Planning App
 
 > Checklist delle implementazioni future.
-> Aggiornata il 2026-03-30 — Post implementazione completa.
+> Aggiornata il 2026-03-31 — Post UX improvements (Gantt allocation, Jira sync, ticket management).
 
 ---
 
@@ -12,21 +12,25 @@
 - [x] **Test E2E con Playwright** — Setup completo: `playwright.config.ts`, test navigazione, health check API, gestione utenti.
 - [x] **Validazione input nelle route PUT** — Milestones e releases PUT ora validano con Zod prima del merge.
 - [x] **Error handling globale nel frontend** — PrimeVue ToastService + composable `useNotifications` per gestire errori API con toast.
-- [x] **Drag & drop sulla timeline Gantt** — HTML5 drag & drop sulle barre Gantt, con auto-lock e ricalcolo date dopo lo spostamento.
+- [x] **Drag & drop sulla timeline Gantt** — HTML5 drag & drop sulle barre Gantt, con ricalcolo date dopo lo spostamento. Fix: `event.currentTarget`, `isDragging` con `requestAnimationFrame`.
+- [x] **Gantt allocation % visibile** — Barre con altezza proporzionale, label "50%", bordo tratteggiato, tooltip con allocazione.
 
 ---
 
 ## 🟡 Media priorità — Feature di valore per il PM
 
 - [x] **Associazione ticket → milestone/release da UI ticket** — Dropdown inline nella TicketTable per assegnare milestone e release.
-- [x] **Filtri e ricerca avanzata nei ticket** — Filtro per status, priorità, fix version + ricerca testo su key/summary/assignee.
+- [x] **Filtri e ricerca avanzata nei ticket** — Filtro per status Jira, fix version + ricerca testo su key/summary/assignee.
 - [ ] **Confronto scenari side-by-side nel frontend** — API pronta (`/api/scenarios/:id/compare`), UI visuale da completare.
 - [x] **Scheduling dello scenario** — Nuova route `POST /api/scenarios/:id/schedule` per auto-schedule dentro uno scenario senza impattare lo stato corrente.
 - [ ] **Vista Gantt raggruppata** — Raggruppare la timeline per milestone, release o utente (richiede refactoring GanttTimeline).
 - [ ] **Notifiche e alert persistenti** — API `alertsApi.fetch()` pronta, dashboard permanente da completare nel frontend.
 - [x] **Import dipendenze da Jira** — Integrato `mapJiraLinksToDependencies` nel flusso sync Jira del backend.
-- [x] **Paginazione sync Jira** — JiraClient ora pagina automaticamente (`fetchAll = true`) per gestire progetti grandi.
+- [x] **Paginazione sync Jira** — JiraClient ora pagina automaticamente con cursor-based pagination (`nextPageToken`).
 - [x] **Bulk actions sui ticket** — Nuova route `PUT /api/tickets/bulk` per aggiornamenti batch + endpoint nel client API.
+- [x] **Creazione ticket manuale** — CreateTicketDialog per aggiungere ticket non provenienti da Jira.
+- [x] **Paginazione tabella ticket** — 25/50/100/tutti righe, reset pagina su cambio filtri.
+- [x] **Auto-schedule assignment alla creazione** — Il backend schedula automaticamente il nuovo assignment senza spostare gli esistenti.
 
 ---
 

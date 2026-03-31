@@ -37,7 +37,7 @@ function makeTicket(id: string, estimate: number | null = 480, status: Ticket['s
     priorityOverride: null,
     status,
     phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null,
     releaseId: null,

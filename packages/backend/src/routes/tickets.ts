@@ -160,10 +160,28 @@ export async function ticketRoutes(app: FastifyInstance) {
       const client = new JiraClient({ baseUrl, email, apiToken })
 
       const searchResult = await client.searchIssues(body.jql)
+      app.log.info(`Jira sync: fetched ${searchResult.issues.length} issues (server total: ${searchResult.total})`)
       const store = getStore()
       const existingTickets = Array.from(store.tickets.values())
 
       const mappingResults = mapJiraIssuesToTickets(searchResult.issues, existingTickets)
+
+      // Rimpiazza la lista: rimuovi tutti i ticket vecchi + assignment e dipendenze orfane
+      const newTicketIds = new Set(mappingResults.map((r) => r.ticket.id))
+
+      for (const [id] of store.tickets) {
+        if (!newTicketIds.has(id)) {
+          store.tickets.delete(id)
+          // Rimuovi assignment collegati al ticket rimosso
+          for (const [aId, a] of store.assignments) {
+            if (a.ticketId === id) store.assignments.delete(aId)
+          }
+          // Rimuovi dipendenze collegati al ticket rimosso
+          for (const [dId, d] of store.dependencies) {
+            if (d.fromTicketId === id || d.toTicketId === id) store.dependencies.delete(dId)
+          }
+        }
+      }
 
       // Salva i ticket nello store
       for (const result of mappingResults) {

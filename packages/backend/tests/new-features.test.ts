@@ -34,7 +34,7 @@ function createTicketPayload(id: string, jiraKey: string, estimateMinutes = 480)
     id, jiraKey, summary: `Ticket ${jiraKey}`, description: null,
     estimateMinutes, jiraPriority: 'medium', priorityOverride: null,
     status: 'backlog' as const, phase: 'dev' as const,
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null, releaseId: null,
     locked: false, warnings: [] as string[],

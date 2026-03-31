@@ -1,11 +1,14 @@
 # AI Context — Planning App
 
 > ⚠️ **REGOLA FONDAMENTALE PER L'AI:**
-> Dopo ogni release, creare o aggiornare i file markdown nella root del progetto
-> per mantenere il contesto aggiornato. Fare **sempre** riferimento a
-> `jira-planning-roadmap.md` per la struttura dei file, delle cartelle e la
-> pianificazione delle feature. Ogni decisione architetturale e ogni modifica
-> strutturale devono essere riflesse in questi documenti.
+> Dopo ogni release o batch di modifiche, SEMPRE aggiornare i file markdown
+> nella root del progetto per mantenere il contesto aggiornato.
+> **Questa regola è OBBLIGATORIA — non chiudere mai un task senza aver
+> verificato che la documentazione sia allineata al codice.**
+> Fare **sempre** riferimento a `jira-planning-roadmap.md` per la struttura
+> dei file, delle cartelle e la pianificazione delle feature.
+> Ogni decisione architetturale e ogni modifica strutturale devono essere
+> riflesse in questi documenti.
 
 Questo file è il punto di ingresso per qualsiasi AI che lavori su questo progetto.
 Leggilo **prima** di qualsiasi modifica al codice.
@@ -33,13 +36,13 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 - **Frontend:** Vue 3 + TypeScript + Vite + PrimeVue + Pinia (dark mode, toast notifications)
 - **Backend:** Fastify + TypeScript + JWT Auth + Swagger/OpenAPI (persistenza JSON + Prisma/SQLite pronto)
 - **Shared:** Monorepo pnpm con pacchetto `@planning/shared` (tipi, scheduling, validatori)
-- **Test:** Vitest (unit + integration) — 251 test (205 shared + 46 backend) + Playwright E2E
+- **Test:** Vitest (unit + integration) — 259 test (209 shared + 50 backend) + Playwright E2E
 - **Infra:** pnpm workspaces + Turborepo + Docker Compose + GitHub Actions CI
 
 ## Stato attuale
 
-- **Release completate:** Release 0–5 + Hotfix + Feature batch (HIGH+MEDIUM+LOW+Debito tecnico)
-- **Ultimo aggiornamento:** 2026-03-30 — Implementazione completa checklist NEXT_FEATURES.md
+- **Release completate:** Release 0–5 + Hotfix + Feature batch (HIGH+MEDIUM+LOW+Debito tecnico) + UX improvements
+- **Ultimo aggiornamento:** 2026-03-31 — Gantt allocation %, drag&drop fix, Jira sync improvements, UI improvements
 - **Prossima attività:** Vedere `docs/NEXT_FEATURES.md` per le feature rimanenti (non spuntate)
 
 ## Feature recenti implementate
@@ -70,6 +73,20 @@ tenendo conto di capacità reale, meeting, assenze, festivi, milestone e release
 - Sovrallocazione precisa (day-by-day)
 - 9 test edge case scheduler
 - TypeScript strict mode frontend
+
+### Miglioramenti post-batch (2026-03-31)
+- **Gantt allocation %**: barre con altezza proporzionale, label "50%", bordo tratteggiato, tooltip con allocazione
+- **Gantt drag & drop fix**: uso `event.currentTarget`, `isDragging` separato con `requestAnimationFrame`
+- **Gantt navigation**: ◀ ▶ 1 settimana, Today, Adatta, zoom 2/4/8/12 settimane
+- **Gantt festivi/assenze**: celle grigie per weekend/festivi/assenze, drop impedito su giorni non lavorativi
+- **Jira sync migliorato**: cursor-based pagination (`nextPageToken`), deduplicazione, safety limit 200 pagine
+- **jiraStatus**: campo `statusCategory` importato da Jira, usato per filtri e stats nella TicketTable
+- **Creazione ticket manuale**: CreateTicketDialog per ticket non provenienti da Jira
+- **Auto-schedule alla creazione assignment**: il backend schedula il nuovo assignment senza spostare gli esistenti
+- **Sync Jira rimpiazza**: ticket rimossi da Jira vengono eliminati dallo store (con assignment e dipendenze orfane)
+- **TicketTable paginazione**: 25/50/100/tutti, reset pagina su cambio filtri
+- **AssignTicketDialog + AssignmentDetailDialog**: dialoghi integrati nella PlanningView
+- **CI GitHub Actions**: rimosso pin versione pnpm (usa packageManager da package.json)
 
 ## Come orientarsi
 

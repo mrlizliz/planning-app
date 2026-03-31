@@ -47,7 +47,7 @@ async function createTicketDirect(id: string, jiraKey: string, estimateMinutes: 
     priorityOverride: null,
     status: 'backlog',
     phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null,
     releaseId: null,
@@ -181,6 +181,63 @@ describe('API — Assignments', () => {
     await createUser()
     const res = await createAssignment('a-1', 'non-esiste', 'user-1')
     expect(res.statusCode).toBe(400)
+  })
+
+  it('POST assignment auto-schedula con date calcolate', async () => {
+    await createUser()
+    await createTicketDirect('t-1', 'PROJ-1', 960) // 16h = 2 giorni lavorativi a 100%
+
+    const res = await createAssignment('a-1', 't-1', 'user-1', 100)
+    expect(res.statusCode).toBe(201)
+
+    const body = res.json()
+    // L'assignment deve avere date e durationDays calcolati
+    expect(body.startDate).not.toBeNull()
+    expect(body.endDate).not.toBeNull()
+    expect(body.durationDays).toBe(2)
+  })
+
+  it('POST assignment cambia status ticket da backlog a planned', async () => {
+    await createUser()
+    await createTicketDirect('t-1', 'PROJ-1', 480)
+
+    // Ticket parte come backlog
+    const store = getStore()
+    expect(store.tickets.get('t-1')!.status).toBe('backlog')
+
+    await createAssignment('a-1', 't-1', 'user-1', 100)
+
+    // Ora il ticket deve essere planned
+    expect(store.tickets.get('t-1')!.status).toBe('planned')
+  })
+
+  it('POST assignment con allocazione 50% → durata doppia', async () => {
+    await createUser()
+    await createTicketDirect('t-1', 'PROJ-1', 960) // 16h
+
+    const res = await createAssignment('a-1', 't-1', 'user-1', 50)
+    expect(res.statusCode).toBe(201)
+
+    const body = res.json()
+    // A 50%: 960 min / (480 * 0.5) = 960/240 = 4 giorni
+    expect(body.durationDays).toBe(4)
+  })
+
+  it('POST secondo assignment non sposta il primo', async () => {
+    await createUser()
+    await createTicketDirect('t-1', 'PROJ-1', 480)
+    await createTicketDirect('t-2', 'PROJ-2', 480)
+
+    const res1 = await createAssignment('a-1', 't-1', 'user-1', 100)
+    const firstStart = res1.json().startDate
+    const firstEnd = res1.json().endDate
+
+    // Secondo assignment: non deve spostare il primo
+    await createAssignment('a-2', 't-2', 'user-1', 100)
+
+    const a1Res = await app.inject({ method: 'GET', url: '/api/assignments/a-1' })
+    expect(a1Res.json().startDate).toBe(firstStart)
+    expect(a1Res.json().endDate).toBe(firstEnd)
   })
 })
 

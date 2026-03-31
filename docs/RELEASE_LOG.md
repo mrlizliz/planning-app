@@ -719,3 +719,90 @@ Implementare tutte le feature della checklist `docs/NEXT_FEATURES.md`.
 
 **Totale test: 251** (205 shared + 46 backend) — tutti passano
 
+---
+
+## UX Improvements — Gantt, Jira Sync, Ticket Management
+
+**Data:** 2026-03-31
+**Stato:** ✅ Completato
+
+### Obiettivo
+
+Migliorare l'usabilità della timeline Gantt, il sync Jira e la gestione ticket.
+
+### Modifiche
+
+#### GanttTimeline.vue — Allocazione %, drag & drop, navigazione
+- **Allocazione % visibile**: barra con altezza proporzionale (100% = 32px, 50% = 16px), label "50%" sulla barra, bordo tratteggiato per allocazioni parziali, tooltip con percentuale
+- **Drag & drop fix**: `event.currentTarget` invece di `event.target` (evita grab offset errato quando si clicca su figli), `isDragging` ref separato con `requestAnimationFrame` (evita che `pointer-events: none` cancelli il drag)
+- **Navigazione**: ◀ ▶ spostano ±1 settimana, bottone "Oggi", bottone "Adatta", zoom 2/4/8/12 settimane
+- **Festivi e assenze**: celle grigie per weekend/festivi/assenze utente, drop impedito su giorni non lavorativi
+- **Clipping**: barre che iniziano prima del range visibile vengono tagliate, barre fuori range nascoste
+
+#### PlanningView.vue — Dialoghi integrati
+- **AssignTicketDialog**: dialogo per assegnare ticket a un utente con ruolo e allocazione %
+- **AssignmentDetailDialog**: doppio click su barra → dettaglio, modifica, elimina assignment
+- **Toggle lock**: click sul lucchetto per bloccare/sbloccare assignment
+- Holidays e absences passate come props al GanttTimeline
+
+#### TicketTable.vue — Paginazione e stato Jira
+- **Paginazione**: 25/50/100/tutti righe per pagina, reset pagina su cambio filtri
+- **jiraStatus**: colonna stato ora mostra lo stato Jira originale (es. "To Do", "In Progress", "Done")
+- Sorting aggiornato per jiraStatus, rimossi sort per jiraPriority e phase (semplificazione)
+
+#### TicketsView.vue — Filtri e creazione manuale
+- **Filtro per stato Jira**: dropdown dinamico basato sugli stati presenti nei ticket
+- **Stats bar dinamica**: conteggi per stato Jira (non più hardcoded backlog/planned)
+- **CreateTicketDialog**: nuovo componente per creare ticket manuali (senza Jira)
+
+#### Backend — Auto-schedule alla creazione, sync replace
+- **Assignment auto-schedule**: POST /api/assignments ora auto-schedula il nuovo assignment (gli esistenti con date restano fissi), aggiorna status ticket → planned
+- **Sync Jira replace**: ticket rimossi da Jira vengono eliminati dallo store, con cascata su assignment e dipendenze orfane
+
+#### Jira Client — Cursor-based pagination
+- Migrato da `startAt` a `nextPageToken` (cursor-based pagination conforme API Jira v3)
+- Deduplicazione per issue key (previene duplicati da API instabile)
+- Safety limit: max 200 pagine (20.000 issues)
+- Log dettagliato per pagina con totali progressivi
+
+#### Shared — Tipo jiraStatus
+- `Ticket.jiraStatus: string | null` — stato originale da Jira (`statusCategory.name`)
+- `jira-mapper.ts`: import statusCategory con fallback `status.statusCategory.name` → `statuscategory.name` → `status.name`
+- Validatore Zod aggiornato con `jiraStatus`
+
+#### Infrastruttura
+- `ci.yml`: rimosso pin versione pnpm (usa `packageManager` da package.json)
+- `client.ts`: aggiunto `ticketsApi.create()`
+- `planning.ts store`: `createAssignment` ricarica lista completa dopo creazione, `deleteAssignment` aggiunto
+- `tickets.ts store`: `createTicket` aggiunto
+
+### File modificati
+
+| File | Tipo |
+|------|------|
+| `packages/frontend/src/components/GanttTimeline.vue` | Allocation %, drag fix, nav, festivi |
+| `packages/frontend/src/components/TicketTable.vue` | Paginazione, jiraStatus |
+| `packages/frontend/src/components/CreateTicketDialog.vue` | **NUOVO** |
+| `packages/frontend/src/views/PlanningView.vue` | Dialog integration |
+| `packages/frontend/src/views/TicketsView.vue` | Filtri jiraStatus, create |
+| `packages/frontend/src/stores/planning.ts` | deleteAssignment, reload |
+| `packages/frontend/src/stores/tickets.ts` | createTicket |
+| `packages/frontend/src/api/client.ts` | ticketsApi.create |
+| `packages/backend/src/routes/assignments.ts` | Auto-schedule |
+| `packages/backend/src/routes/tickets.ts` | Sync replace |
+| `packages/backend/src/services/jira-client.ts` | Cursor pagination |
+| `packages/shared/src/types/ticket.ts` | jiraStatus field |
+| `packages/shared/src/scheduling/jira-mapper.ts` | statusCategory import |
+| `packages/shared/src/validators/index.ts` | jiraStatus in schema |
+| `.github/workflows/ci.yml` | Removed pnpm version pin |
+
+### Test aggiunti
+
+| File | Casi |
+|------|------|
+| `shared/tests/scheduling/jira-mapper.test.ts` | +4 test (jiraStatus: statusCategory, fallback top-level, fallback status.name, null) |
+| `backend/tests/api.test.ts` | +4 test (auto-schedule on create, ticket→planned, allocation 50%, secondo assignment non sposta primo) |
+| Tutti i test file | Fixture ticket aggiornate con campo `jiraStatus: null` |
+
+**Totale test: 259** (209 shared + 50 backend) — tutti passano
+

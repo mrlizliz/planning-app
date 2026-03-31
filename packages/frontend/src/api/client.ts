@@ -34,6 +34,8 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 export const ticketsApi = {
   list: () => request<Ticket[]>('/tickets'),
   get: (id: string) => request<Ticket>(`/tickets/${id}`),
+  create: (ticket: Ticket) =>
+    request<Ticket>('/tickets', { method: 'POST', body: JSON.stringify(ticket) }),
   update: (id: string, data: Partial<Ticket>) =>
     request<Ticket>(`/tickets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) =>

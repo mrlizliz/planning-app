@@ -21,7 +21,7 @@ function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
     id: 't1', jiraKey: 'TEST-1', summary: 'Test ticket', description: null,
     estimateMinutes: 480, jiraPriority: 'medium', priorityOverride: null,
     status: 'backlog', phase: 'dev',
-    jiraAssigneeEmail: null, jiraAssigneeName: null,
+    jiraAssigneeEmail: null, jiraAssigneeName: null, jiraStatus: null,
     parentKey: null, fixVersions: [],
     milestoneId: null, releaseId: null,
     locked: false, warnings: [],

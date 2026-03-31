@@ -156,6 +156,57 @@ describe('Jira Mapper', () => {
     expect(result.ticket.estimateMinutes).toBe(120) // 2h = 120min
   })
 
+  // ---- jiraStatus mapping ----
+
+  it('mappa jiraStatus da status.statusCategory.name', () => {
+    const issue = makeJiraIssue({
+      fields: {
+        ...makeJiraIssue().fields,
+        status: {
+          name: 'In Progress',
+          statusCategory: { name: 'In Progress' },
+        },
+      },
+    })
+    const result = mapJiraIssueToTicket(issue)
+    expect(result.ticket.jiraStatus).toBe('In Progress')
+  })
+
+  it('jiraStatus fallback a statuscategory top-level', () => {
+    const issue: JiraIssue = {
+      key: 'PROJ-789',
+      fields: {
+        summary: 'Fallback status',
+        status: { name: 'Custom Status' },
+        statuscategory: { name: 'Done' },
+      },
+    }
+    const result = mapJiraIssueToTicket(issue)
+    expect(result.ticket.jiraStatus).toBe('Done')
+  })
+
+  it('jiraStatus fallback a status.name se nessun statusCategory', () => {
+    const issue = makeJiraIssue({
+      fields: {
+        ...makeJiraIssue().fields,
+        status: { name: 'Review' },
+      },
+    })
+    const result = mapJiraIssueToTicket(issue)
+    expect(result.ticket.jiraStatus).toBe('Review')
+  })
+
+  it('jiraStatus null se nessuna info status', () => {
+    const issue: JiraIssue = {
+      key: 'PROJ-000',
+      fields: {
+        summary: 'No status',
+      },
+    }
+    const result = mapJiraIssueToTicket(issue)
+    expect(result.ticket.jiraStatus).toBeNull()
+  })
+
   // Mapping batch con preservazione override
   describe('mapJiraIssuesToTickets (batch)', () => {
     it('mappa più issue in batch', () => {
